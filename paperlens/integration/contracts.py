@@ -653,16 +653,85 @@ def to_document(payload: Any, *, fallback_title: str = "Untitled paper") -> Docu
         for s in sections
     ) if isinstance(sections, (list, tuple)) else ()
 
-    page_count = _as_int(_get(payload, ("page_count", "num_pages", "n_pages"))) or len(full_text_by_page)
+    # The parser nests descriptive fields under "metadata"; look there before
+    # falling back, or every paper is titled after its filename.
+    meta = _get(payload, ("metadata", "meta", "info"))
+
+    def from_payload_or_meta(keys: Sequence[str]) -> Any:
+        value = _get(payload, keys)
+        return value if value is not None else _get(meta, keys)
+
+    page_count = (
+        _as_int(from_payload_or_meta(("page_count", "num_pages", "n_pages")))
+        or len(full_text_by_page)
+    )
 
     return Document(
-        title=_as_str(_get(payload, ("title", "paper_title", "name")), fallback_title),
+        title=_resolve_title(
+            _as_str(from_payload_or_meta(("title", "paper_title", "name"))),
+            full_text_by_page,
+            fallback_title,
+        ),
         page_count=page_count,
         full_text_by_page=full_text_by_page,
         sections=tuple(s for s in section_names if s),
         chunks=to_chunks(_get(payload, ("chunks", "passages", "segments")), full_text_by_page),
         raw=payload,
     )
+
+
+#: Strings that mark a "title" as an identifier stamp or front-matter boilerplate
+#: rather than the paper's name. Both sit above the real title on page one and
+#: both get picked up by naive largest-font heuristics.
+_STAMP_MARKERS = (
+    # Preprint identifier stamps.
+    "arxiv:", "doi:", "biorxiv", "ssrn", "preprint server", "http",
+    # Licence / permission boilerplate.
+    "grants permission", "copyright", "all rights reserved", "creative commons",
+    "reproduce the tables", "licensed under", "distributed under",
+)
+
+
+def _is_stamp(text: str) -> bool:
+    """True when a candidate title is really a stamp or licence notice.
+
+    Preprints carry a rotated identifier down the left margin ("arXiv:1706.03762v7
+    [cs.CL] 2 Aug 2023") set larger than the actual title, so any title heuristic
+    that does not check text direction picks the stamp. Licence boilerplate sits
+    in the same region. Treat both as unusable and look further down the page.
+    """
+    lowered = text.lower()
+    if any(marker in lowered for marker in _STAMP_MARKERS):
+        return True
+    # Mostly digits and punctuation: an identifier, not a title.
+    letters = sum(c.isalpha() for c in text)
+    return bool(text) and letters / max(1, len(text)) < 0.5
+
+
+def _resolve_title(candidate: str, full_text_by_page: dict[int, str], fallback: str) -> str:
+    """Pick a displayable paper title, rejecting identifier stamps."""
+    if candidate and not _is_stamp(candidate):
+        return candidate
+
+    # Next best: the first genuinely title-like line near the top of page one.
+    # "Title-like" is doing real work here — a plain "not boilerplate" filter
+    # happily returns the tail of a licence paragraph ("scholarly works.").
+    # Titles are multi-word, capitalised, and do not end in a full stop.
+    first_page = full_text_by_page.get(min(full_text_by_page)) if full_text_by_page else ""
+    for line in (first_page or "").splitlines()[:40]:
+        line = line.strip()
+        if not (15 <= len(line) <= 160) or _is_stamp(line) or "@" in line:
+            continue
+        if line.endswith((".", ",", ";", ":")):
+            continue
+        words = line.split()
+        if len(words) < 3 or not line[:1].isupper():
+            continue
+        letters = sum(c.isalpha() or c.isspace() for c in line)
+        if letters / max(1, len(line)) > 0.85:
+            return line
+
+    return candidate or fallback
 
 
 def to_chunks(

@@ -50,11 +50,15 @@ logger = logging.getLogger("paperlens.integration")
 #: import paths named in the integration notes.
 _LOOKUP: dict[str, tuple[tuple[str, str], ...]] = {
     "process_pdf": (
+        ("parser.document_processor", "process_pdf"),
         ("parser.pdf_parser", "process_pdf"),
         ("parser.process_pdf", "process_pdf"),
         ("parser", "process_pdf"),
+        ("document_processor", "process_pdf"),
     ),
     "generate_brief": (
+        ("summarization.briefing", "generate_brief"),
+        ("summarization", "generate_brief"),
         ("ai.summarizer", "generate_brief"),
         ("briefing.generate_brief", "generate_brief"),
         ("briefing", "generate_brief"),
@@ -94,7 +98,7 @@ _LOOKUP: dict[str, tuple[tuple[str, str], ...]] = {
         ("citations.extractor", "analyze_references"),
         ("citations.extractor", "extract_references"),
         ("citations", "extract_references"),
-        ("citations.semantic", "analyze_references"),
+        ("citations.openalex", "analyze_references"),
     ),
     "review": (
         ("reviewer.reviewer", "review"),
@@ -178,13 +182,13 @@ def integration_status() -> dict[str, Resolved]:
     return {name: resolve(name) for name in _LOOKUP}
 
 
-def missing_modules() -> list[str]:
-    """Owners whose real module is not yet importable, for the fallback notice."""
-    seen: list[str] = []
-    for resolved in integration_status().values():
-        if not resolved.is_real and resolved.owner not in seen:
-            seen.append(resolved.owner)
-    return seen
+def missing_capabilities() -> list[str]:
+    """Contract function names currently served by a local fallback.
+
+    Returns function names rather than owners: the UI describes what is running
+    locally in terms of its effect on the output, not whose module is missing.
+    """
+    return [name for name, resolved in integration_status().items() if not resolved.is_real]
 
 
 # ─── Signature-tolerant invocation ─────────────────────────────────────────
@@ -376,13 +380,21 @@ def run_process_pdf(cache_key: str, pdf_path: str) -> Outcome:
 
 @st.cache_data(show_spinner=False, max_entries=8)
 def run_generate_brief(cache_key: str, _document: Any) -> Outcome:
-    """Generate the structured summary."""
+    """Generate the structured summary.
+
+    The shipped ``generate_brief(doc_json: dict)`` wants the raw parser payload,
+    not our ``Document`` dataclass, so ``Document.raw`` is offered first — same
+    reasoning as :func:`run_analyze_references`.
+    """
     resolved = resolve("generate_brief")
+    raw = getattr(_document, "raw", None)
+    payload = raw if isinstance(raw, dict) else _document
+
     return safe_call(
         "Summarization",
         lambda: invoke(
             resolved.fn,
-            {"document": _document, "context": _document},
+            {"document": payload, "context": payload},
             fallback_order=("document",),
         ),
     )

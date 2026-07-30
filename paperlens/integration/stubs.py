@@ -110,15 +110,41 @@ def _keywords(text: str) -> set[str]:
     return {w.lower() for w in _WORD.findall(text) if w.lower() not in _STOPWORDS and len(w) > 2}
 
 
+#: What each stubbed capability actually means for the user, in plain language.
+#: Phrased in terms of the *output* rather than which module is missing — the
+#: reader cares whether a summary is LLM-written or extracted, not whose code is
+#: not merged yet.
+_CAPABILITY_NOTES: dict[str, str] = {
+    "process_pdf": "Section structure is detected heuristically.",
+    "generate_brief": (
+        "The summary is extractive — real sentences pulled from the PDF, "
+        "not LLM-written prose."
+    ),
+    "build_index": "Search matches words rather than meaning.",
+    "ask_question": "Answers are quoted from the paper rather than composed.",
+    "analyze_references": "Reference metadata (citation counts, abstracts) is not fetched.",
+    "review": "Reproducibility signals are keyword checks, not a model's review.",
+}
+
+
 def fallback_notice(missing: list[str]) -> str:
-    """One-line, non-euphemistic description of what is running locally."""
-    if not missing:
+    """Non-euphemistic description of what is running locally.
+
+    Deliberately says nothing about who owns what. Verification is called out
+    explicitly because it is the one thing the product asks to be trusted, and it
+    is genuine either way — a real fuzzy match against the real page text.
+    """
+    notes = [_CAPABILITY_NOTES[name] for name in missing if name in _CAPABILITY_NOTES]
+    if not notes:
         return ""
+    # De-duplicate while preserving order.
+    seen: list[str] = []
+    for note in notes:
+        if note not in seen:
+            seen.append(note)
     return (
-        f"Running local fallbacks for: {', '.join(missing)}. "
-        "Summaries are extractive (real sentences pulled from the PDF), not LLM-generated, "
-        "and citation metadata is not fetched. Verification badges are real "
-        "rapidfuzz matches against the page text."
+        " ".join(seen)
+        + " Verification badges are real fuzzy matches against the page text."
     )
 
 
@@ -376,15 +402,36 @@ def generate_brief(document: Any) -> dict[str, list[dict[str, Any]]]:
 
 
 def _pages_of(document: Any) -> dict[int, str]:
-    """Pull ``full_text_by_page`` off a Document dataclass or a raw dict."""
+    """Pull page text off a Document dataclass or any of the raw parser shapes."""
     pages = getattr(document, "full_text_by_page", None)
     if isinstance(pages, dict) and pages:
         return pages
+
     if isinstance(document, dict):
         for key in ("full_text_by_page", "text_by_page", "pages_text"):
             value = document.get(key)
             if isinstance(value, dict) and value:
                 return {int(k): str(v) for k, v in value.items()}
+
+        # The parser's own shape: a list of page records rather than a mapping.
+        # Without this branch the whole document reads as empty, which silently
+        # produces a brief with no claims at all.
+        page_list = document.get("pages")
+        if isinstance(page_list, (list, tuple)) and page_list:
+            out: dict[int, str] = {}
+            for i, page in enumerate(page_list, start=1):
+                if isinstance(page, dict):
+                    number = page.get("page_number") or page.get("page") or i
+                    text = page.get("text") or page.get("content") or ""
+                else:
+                    number, text = i, str(page)
+                try:
+                    out[int(number)] = str(text)
+                except (TypeError, ValueError):
+                    out[i] = str(text)
+            if out:
+                return out
+
     raw = getattr(document, "raw", None)
     if isinstance(raw, dict):
         return _pages_of(raw)
