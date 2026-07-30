@@ -1,0 +1,78 @@
+# Team Member 5 — Dashboard & User Experience
+
+## Goal
+
+Turn all modules into one polished application.
+
+### Responsibilities
+
+•⁠  ⁠Streamlit dashboard
+•⁠  ⁠PDF viewer
+•⁠  ⁠Navigation
+•⁠  ⁠Layout
+•⁠  ⁠Evidence highlighting
+•⁠  ⁠Graph display
+•⁠  ⁠Chat interface
+•⁠  ⁠Loading animations
+•⁠  ⁠Error handling
+
+### Deliverables
+
+•⁠  ⁠Complete UI
+•⁠  ⁠Responsive dashboard
+•⁠  ⁠PDF navigation
+•⁠  ⁠Feature integration
+
+### Success Criteria
+
+✓ Upload paper
+
+✓ Navigate between sections
+
+✓ Click summary → jump to PDF
+
+✓ Everything looks polished
+
+---
+
+# Integration Contract
+
+Nobody edits another person's code.
+
+Each member exposes *one public function*.
+
+| Member   | Function                                       |
+| -------- | ---------------------------------------------- |
+| Member 1 | ⁠ process_pdf(pdf_path) ⁠                        |
+| Member 2 | ⁠ generate_brief(document) ⁠                     |
+| Member 3 | ⁠ ask_question(question, document) ⁠             |
+| Member 4 | ⁠ analyze_references(document) ⁠                 |
+| Member 5 | ⁠ render_dashboard(document, brief, citations) ⁠ |
+
+---
+
+# Shared Folder Structure
+
+⁠ text
+paperlens/
+│
+├── app.py
+│
+├── parser/
+│   └── process_pdf.py
+│
+├── briefing/
+│   └── generate_brief.py
+│
+├── chat/
+│   └── ask_question.py
+│
+├── citations/
+│   └── analyze_references.py
+│
+├── ui/
+│   └── dashboard.py
+│
+├── utils/
+│
+└── requirements.txt

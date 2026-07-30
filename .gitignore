@@ -1,0 +1,47 @@
+__pycache__/
+*.pyc
+*.pyo
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.DS_Store
+
+# Virtual environments
+.venv/
+venv/
+
+# Node — only present because the `npx skills` CLI installs here.
+node_modules/
+
+# Local agent / editor state. Installed skills are reproducible from
+# skills-lock.json via `npx skills install`, so they are not committed
+# (same reasoning as node_modules).
+.agents/
+.claude/settings.local.json
+.claude/skills/
+.kilocode/skills/
+
+# Secrets. Note the theme in paperlens/.streamlit/config.toml IS committed —
+# it is the design system, not configuration.
+.streamlit/secrets.toml
+.env
+
+# Test fixtures: third-party papers are downloaded on demand, not
+# redistributed through this repo. See paperlens/integration/fixtures/README.md.
+paperlens/integration/fixtures/*.pdf
+# Environment variables (API Keys)
+.env
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.py[cod]
+
+# IDE Files
+.vscode/
+.idea/
+.DS_Store
