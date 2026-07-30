@@ -1,0 +1,263 @@
+{
+  "metadata": {
+    "filename": "test_paper.pdf",
+    "title": "Efficient Sequence Modeling via Lightweight Attention",
+    "author": null,
+    "num_pages": 3,
+    "num_sections": 10,
+    "num_chunks": 16,
+    "total_characters": 8391,
+    "processed_at": "2026-07-30T09:35:25.334687+00:00"
+  },
+  "pages": [
+    {
+      "page_number": 1,
+      "text": "Efficient Sequence Modeling via Lightweight\nAttention\nJane Researcher, John Scholar \u2014 Fictional University\nAbstract\nWe present a novel framework for efficient sequence modeling. This work builds on prior approaches\nby introducing a lightweight mechanism that reduces computational overhead while preserving\naccuracy across a range of benchmark tasks. We evaluate the proposed method on three standard\ndatasets and compare against strong baselines from recent literature. Our analysis shows consistent\nimprovements, particularly in low-resource settings where prior methods tend to overfit. We further\nexamine failure cases to understand the boundary conditions under which the approach\nunderperforms.\n1. Introduction\nThis work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms. This work\nbuilds on prior approaches by introducing a lightweight mechanism that reduces computational\noverhead while preserving accuracy across a range of benchmark tasks. We evaluate the proposed\nmethod on three standard datasets and compare against strong baselines from recent literature. Our\nanalysis shows consistent improvements, particularly in low-resource settings where prior methods\ntend to overfit. We further examine failure cases to understand the boundary conditions under which\nthe approach underperforms.\n2. Related Work\nPrior work has explored several directions relevant to this study. This work builds on prior approaches\nby introducing a lightweight mechanism that reduces computational overhead while preserving\naccuracy across a range of benchmark tasks. We evaluate the proposed method on three standard\ndatasets and compare against strong baselines from recent literature. Our analysis shows consistent\nimprovements, particularly in low-resource settings where prior methods tend to overfit. We further\nexamine failure cases to understand the boundary conditions under which the approach\n",
+      "char_count": 2877
+    },
+    {
+      "page_number": 2,
+      "text": "underperforms. This work builds on prior approaches by introducing a lightweight mechanism that\nreduces computational overhead while preserving accuracy across a range of benchmark tasks. We\nevaluate the proposed method on three standard datasets and compare against strong baselines from\nrecent literature. Our analysis shows consistent improvements, particularly in low-resource settings\nwhere prior methods tend to overfit. We further examine failure cases to understand the boundary\nconditions under which the approach underperforms.\n3. Method\nWe describe our architecture in detail below, including the training objective and optimization\nprocedure. This work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms. This work\nbuilds on prior approaches by introducing a lightweight mechanism that reduces computational\noverhead while preserving accuracy across a range of benchmark tasks. We evaluate the proposed\nmethod on three standard datasets and compare against strong baselines from recent literature. Our\nanalysis shows consistent improvements, particularly in low-resource settings where prior methods\ntend to overfit. We further examine failure cases to understand the boundary conditions under which\nthe approach underperforms.\n4. Experiments\nWe conduct experiments on three benchmark datasets using standard train/test splits. This work builds\non prior approaches by introducing a lightweight mechanism that reduces computational overhead\nwhile preserving accuracy across a range of benchmark tasks. We evaluate the proposed method on\nthree standard datasets and compare against strong baselines from recent literature. Our analysis\nshows consistent improvements, particularly in low-resource settings where prior methods tend to\noverfit. We further examine failure cases to understand the boundary conditions under which the\napproach underperforms. This work builds on prior approaches by introducing a lightweight mechanism\nthat reduces computational overhead while preserving accuracy across a range of benchmark tasks.\nWe evaluate the proposed method on three standard datasets and compare against strong baselines\nfrom recent literature. Our analysis shows consistent improvements, particularly in low-resource\nsettings where prior methods tend to overfit. We further examine failure cases to understand the\nboundary conditions under which the approach underperforms.\n5. Results\n",
+      "char_count": 3381
+    },
+    {
+      "page_number": 3,
+      "text": "Table 1 summarizes our main results, showing a consistent improvement of 2-4 points over baselines.\nThis work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms.\n6. Limitations\nDespite strong results, our method has notable limitations. It requires more memory during training and\nhas not been validated on multilingual data. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms.\n7. Conclusion\nWe introduced a new method that improves efficiency without sacrificing accuracy, and we hope it\ninspires future work in this direction.\nReferences\n[1] Author, A. (2023). Example Paper Title. Conference on Machine Learning. [2] Author, B. (2022).\nAnother Paper. Journal of AI Research.\n",
+      "char_count": 2133
+    }
+  ],
+  "sections": [
+    {
+      "id": "sec_1",
+      "title": "Efficient Sequence Modeling via Lightweight Attention",
+      "level": 1,
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "id": "sec_2",
+      "title": "Abstract",
+      "level": 1,
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "id": "sec_3",
+      "title": "1. Introduction",
+      "level": 1,
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "id": "sec_4",
+      "title": "2. Related Work",
+      "level": 1,
+      "page_start": 1,
+      "page_end": 2
+    },
+    {
+      "id": "sec_5",
+      "title": "3. Method",
+      "level": 1,
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "id": "sec_6",
+      "title": "4. Experiments",
+      "level": 1,
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "id": "sec_7",
+      "title": "5. Results",
+      "level": 1,
+      "page_start": 2,
+      "page_end": 3
+    },
+    {
+      "id": "sec_8",
+      "title": "6. Limitations",
+      "level": 1,
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "id": "sec_9",
+      "title": "7. Conclusion",
+      "level": 1,
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "id": "sec_10",
+      "title": "References",
+      "level": 1,
+      "page_start": 3,
+      "page_end": 3
+    }
+  ],
+  "chunks": [
+    {
+      "id": "chunk_1",
+      "section_id": "sec_1",
+      "section_title": "Efficient Sequence Modeling via Lightweight Attention",
+      "text": "Efficient Sequence Modeling via Lightweight\nAttention\nJane Researcher, John Scholar \u2014 Fictional University",
+      "page_start": 1,
+      "page_end": 1,
+      "char_start": 0,
+      "char_end": 107
+    },
+    {
+      "id": "chunk_2",
+      "section_id": "sec_2",
+      "section_title": "Abstract",
+      "text": "Abstract\nWe present a novel framework for efficient sequence modeling. This work builds on prior approaches\nby introducing a lightweight mechanism that reduces computational overhead while preserving\naccuracy across a range of benchmark tasks. We evaluate the proposed method on three standard\ndatasets and compare against strong baselines from recent literature. Our analysis shows consistent\nimprovements, particularly in low-resource settings where prior methods tend to overfit. We further\nexamine failure cases to understand the boundary conditions under which the approach\nunderperforms.",
+      "page_start": 1,
+      "page_end": 1,
+      "char_start": 0,
+      "char_end": 594
+    },
+    {
+      "id": "chunk_3",
+      "section_id": "sec_3",
+      "section_title": "1. Introduction",
+      "text": "1. Introduction\nThis work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit.",
+      "page_start": 1,
+      "page_end": 1,
+      "char_start": 0,
+      "char_end": 950
+    },
+    {
+      "id": "chunk_4",
+      "section_id": "sec_3",
+      "section_title": "1. Introduction",
+      "text": "selines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms. This work\nbuilds on prior approaches by introducing a lightweight mechanism that reduces computational\noverhead while preserving accuracy across a range of benchmark tasks. We evaluate the proposed\nmethod on three standard datasets and compare against strong baselines from recent literature. Our\nanalysis shows consistent improvements, particularly in low-resource settings where prior methods\ntend to overfit. We further examine failure cases to understand the boundary conditions under which\nthe approach underperforms.",
+      "page_start": 1,
+      "page_end": 1,
+      "char_start": 800,
+      "char_end": 1585
+    },
+    {
+      "id": "chunk_5",
+      "section_id": "sec_4",
+      "section_title": "2. Related Work",
+      "text": "2. Related Work\nPrior work has explored several directions relevant to this study. This work builds on prior approaches\nby introducing a lightweight mechanism that reduces computational overhead while preserving\naccuracy across a range of benchmark tasks. We evaluate the proposed method on three standard\ndatasets and compare against strong baselines from recent literature. Our analysis shows consistent\nimprovements, particularly in low-resource settings where prior methods tend to overfit. We further\nexamine failure cases to understand the boundary conditions under which the approach\n\nunderperforms. This work builds on prior approaches by introducing a lightweight mechanism that\nreduces computational overhead while preserving accuracy across a range of benchmark tasks. We\nevaluate the proposed method on three standard datasets and compare against strong baselines from\nrecent literature. Our analysis shows consistent improvements, particularly in low-resource settings\nwhere prior methods tend to overfit.",
+      "page_start": 1,
+      "page_end": 2,
+      "char_start": 0,
+      "char_end": 1018
+    },
+    {
+      "id": "chunk_6",
+      "section_id": "sec_4",
+      "section_title": "2. Related Work",
+      "text": "selines from\nrecent literature. Our analysis shows consistent improvements, particularly in low-resource settings\nwhere prior methods tend to overfit. We further examine failure cases to understand the boundary\nconditions under which the approach underperforms.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 868,
+      "char_end": 1130
+    },
+    {
+      "id": "chunk_7",
+      "section_id": "sec_5",
+      "section_title": "3. Method",
+      "text": "3. Method\nWe describe our architecture in detail below, including the training objective and optimization\nprocedure. This work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 0,
+      "char_end": 932
+    },
+    {
+      "id": "chunk_8",
+      "section_id": "sec_5",
+      "section_title": "3. Method",
+      "text": "ss a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms. This work\nbuilds on prior approaches by introducing a lightweight mechanism that reduces computational\noverhead while preserving accuracy across a range of benchmark tasks. We evaluate the proposed\nmethod on three standard datasets and compare against strong baselines from recent literature. Our\nanalysis shows consistent improvements, particularly in low-resource settings where prior methods\ntend to overfit.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 782,
+      "char_end": 1574
+    },
+    {
+      "id": "chunk_9",
+      "section_id": "sec_5",
+      "section_title": "3. Method",
+      "text": "selines from recent literature. Our\nanalysis shows consistent improvements, particularly in low-resource settings where prior methods\ntend to overfit. We further examine failure cases to understand the boundary conditions under which\nthe approach underperforms.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 1424,
+      "char_end": 1686
+    },
+    {
+      "id": "chunk_10",
+      "section_id": "sec_6",
+      "section_title": "4. Experiments",
+      "text": "4. Experiments\nWe conduct experiments on three benchmark datasets using standard train/test splits. This work builds\non prior approaches by introducing a lightweight mechanism that reduces computational overhead\nwhile preserving accuracy across a range of benchmark tasks. We evaluate the proposed method on\nthree standard datasets and compare against strong baselines from recent literature. Our analysis\nshows consistent improvements, particularly in low-resource settings where prior methods tend to\noverfit. We further examine failure cases to understand the boundary conditions under which the\napproach underperforms. This work builds on prior approaches by introducing a lightweight mechanism\nthat reduces computational overhead while preserving accuracy across a range of benchmark tasks.\nWe evaluate the proposed method on three standard datasets and compare against strong baselines\nfrom recent literature.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 0,
+      "char_end": 915
+    },
+    {
+      "id": "chunk_11",
+      "section_id": "sec_6",
+      "section_title": "4. Experiments",
+      "text": "ss a range of benchmark tasks.\nWe evaluate the proposed method on three standard datasets and compare against strong baselines\nfrom recent literature. Our analysis shows consistent improvements, particularly in low-resource\nsettings where prior methods tend to overfit. We further examine failure cases to understand the\nboundary conditions under which the approach underperforms.",
+      "page_start": 2,
+      "page_end": 2,
+      "char_start": 765,
+      "char_end": 1146
+    },
+    {
+      "id": "chunk_12",
+      "section_id": "sec_7",
+      "section_title": "5. Results",
+      "text": "5. Results\n\nTable 1 summarizes our main results, showing a consistent improvement of 2-4 points over baselines.\nThis work builds on prior approaches by introducing a lightweight mechanism that reduces\ncomputational overhead while preserving accuracy across a range of benchmark tasks. We evaluate\nthe proposed method on three standard datasets and compare against strong baselines from recent\nliterature. Our analysis shows consistent improvements, particularly in low-resource settings where\nprior methods tend to overfit. We further examine failure cases to understand the boundary conditions\nunder which the approach underperforms. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature.",
+      "page_start": 2,
+      "page_end": 3,
+      "char_start": 0,
+      "char_end": 927
+    },
+    {
+      "id": "chunk_13",
+      "section_id": "sec_7",
+      "section_title": "5. Results",
+      "text": "ss a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms.",
+      "page_start": 3,
+      "page_end": 3,
+      "char_start": 777,
+      "char_end": 1158
+    },
+    {
+      "id": "chunk_14",
+      "section_id": "sec_8",
+      "section_title": "6. Limitations",
+      "text": "6. Limitations\nDespite strong results, our method has notable limitations. It requires more memory during training and\nhas not been validated on multilingual data. This work builds on prior approaches by introducing a\nlightweight mechanism that reduces computational overhead while preserving accuracy across a range\nof benchmark tasks. We evaluate the proposed method on three standard datasets and compare\nagainst strong baselines from recent literature. Our analysis shows consistent improvements,\nparticularly in low-resource settings where prior methods tend to overfit. We further examine failure\ncases to understand the boundary conditions under which the approach underperforms.",
+      "page_start": 3,
+      "page_end": 3,
+      "char_start": 0,
+      "char_end": 687
+    },
+    {
+      "id": "chunk_15",
+      "section_id": "sec_9",
+      "section_title": "7. Conclusion",
+      "text": "7. Conclusion\nWe introduced a new method that improves efficiency without sacrificing accuracy, and we hope it\ninspires future work in this direction.",
+      "page_start": 3,
+      "page_end": 3,
+      "char_start": 0,
+      "char_end": 151
+    },
+    {
+      "id": "chunk_16",
+      "section_id": "sec_10",
+      "section_title": "References",
+      "text": "References\n[1] Author, A. (2023). Example Paper Title. Conference on Machine Learning. [2] Author, B. (2022).\nAnother Paper. Journal of AI Research.",
+      "page_start": 3,
+      "page_end": 3,
+      "char_start": 0,
+      "char_end": 150
+    }
+  ]
+}
