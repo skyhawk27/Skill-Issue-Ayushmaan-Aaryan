@@ -42,12 +42,14 @@ work with no key.
 
 ```
 app.py                     entry point: upload → pipeline → dashboard
-.streamlit/config.toml     the entire visual design (no custom CSS anywhere)
+.streamlit/config.toml     the entire visual design (see ui/splash.py for the one CSS exception)
 ui/
+  home.py                  landing screen: hero, badge legend, feature catalogue
   dashboard.py             render_dashboard(document, brief, citations)  ← contract fn
   theme.py                 status semantics + the few tokens Python needs
   components.py            badge, claim card, tally, empty/error states
   pdf_pane.py              viewer, page nav, highlight overlay
+  splash.py                opening animation — the ONLY custom CSS in the app
   export.py                verified summary export (Feature 10)
   panels/                  summary · chat · citations · reviewer
 integration/
@@ -63,10 +65,39 @@ tests/dashboard_checks.py  60 headless checks over the PRD success criteria
 ## Design
 
 `.streamlit/config.toml` carries the whole look, derived from `DESIGN.md`
-(the Notion analysis) and rendered monochrome. **There is no custom CSS in this
-codebase** — no `unsafe_allow_html`, no injected `<style>`. Everything is native
-Streamlit theming plus native containers, so the UI inherits Streamlit's own
-accessibility and responsive behaviour instead of fighting it.
+(the Notion analysis) and rendered monochrome. **`ui/splash.py` is the only file
+with custom CSS** — nothing else uses `unsafe_allow_html` or an injected
+`<style>`. Everything else is native Streamlit theming plus native containers, so
+the UI inherits Streamlit's own accessibility and responsive behaviour instead of
+fighting it. Keep it that way: if you need a new surface styled, reach for
+`config.toml` first.
+
+### The splash screen
+
+`ui/splash.py` is a **gate**, not a timed flash. A ~4s sequence plays — the
+wordmark rises, a highlight band wipes across it, a green check stamps in — and
+then it *holds* until the reader presses **Enter**. Nothing auto-advances, so it
+cannot clear itself mid-sentence during a demo.
+
+The sequence is *claim → highlighted evidence → Verified*: the product in
+miniature, which is why the single green accent is earned rather than decorative.
+The tick reads its colour from the same `STATUS_STYLES` constant the badges use,
+so the two cannot drift.
+
+An overlay that covers the viewport indefinitely is the most dangerous kind of UI
+to get wrong, so three properties make it impossible to get stuck behind:
+
+- **The overlay's resting state is invisible** (`opacity: 0`); the animation
+  reveals it. No stylesheet, no overlay — the app is simply untouched.
+- **The overlay never takes pointer events**, so it cannot swallow a click even
+  while fully visible — it can never intercept its own way out.
+- **Enter is a real `st.button`**, not a styled `<div>`. Its click path does not
+  depend on any CSS surviving; the stylesheet only *positions* it, via the
+  generated `.st-key-pl_splash_enter` hook. Strip the CSS and the button renders
+  inline and still works.
+
+`prefers-reduced-motion` skips the motion and shows the finished state at once —
+including the button. Skipping the animation must never skip the way out of it.
 
 One rule governs the palette:
 

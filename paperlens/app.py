@@ -18,10 +18,41 @@ import streamlit as st
 
 # Allow `streamlit run paperlens/app.py` from the repository root: the package
 # directory itself must be importable for `ui.*` / `integration.*` to resolve.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_PACKAGE_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _PACKAGE_DIR.parent
+sys.path.insert(0, str(_PACKAGE_DIR))
+
+
+def _load_env() -> None:
+    """Load ``.env`` before anything else imports a module that reads it.
+
+    This has to happen here, and it has to happen first. Teammate modules read
+    their credentials at **import time** — ``citations/config.py`` does
+    ``os.getenv("OPENALEX_API_KEY")`` at module level — and none of them call
+    ``load_dotenv()`` themselves except ``summarization/briefing.py``, which
+    cannot be imported without ``NVIDIA_API_KEY`` in the first place.
+
+    The net effect before this existed: ``.env`` was never loaded at all in the
+    running app, so every key read from it came back ``None`` and the failure was
+    silent — OpenAlex simply behaved as though no key had been configured.
+
+    Being the entry point, ``app.py`` is the one place that reliably runs before
+    any of that. Environment variables already set in the shell win over ``.env``.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # python-dotenv is in requirements, but do not hard-fail
+        return
+
+    for candidate in (_REPO_ROOT / ".env", _PACKAGE_DIR / ".env"):
+        if candidate.is_file():
+            load_dotenv(candidate, override=False)
+
+
+_load_env()
 
 from integration import pipeline  # noqa: E402
-from ui import state  # noqa: E402
+from ui import home, splash, state  # noqa: E402
 from ui.dashboard import render_dashboard  # noqa: E402
 
 st.set_page_config(
@@ -33,34 +64,15 @@ st.set_page_config(
 
 state.init()
 
+# Before the upload/dashboard branch, so a first load that restores a document
+# still gets the intro. The gate holds until Enter is pressed; the screen behind
+# it still renders, so the app is ready the instant it clears.
+splash.render_gate()
+
 
 def _upload_screen() -> None:
-    """The landing state: one action, stated plainly."""
-    _, middle, _ = st.columns([1, 2, 1])
-    with middle:
-        st.space("large")
-        with st.container(horizontal_alignment="center"):
-            st.title("PaperLens", anchor=False, text_alignment="center")
-            st.markdown(
-                "Understand a research paper in minutes — with every claim checked "
-                "against the paper itself, not just asserted.",
-                text_alignment="center",
-            )
-        st.space("medium")
-
-        uploaded = st.file_uploader(
-            "Upload a research paper",
-            type=["pdf"],
-            help="Any PDF. Nothing is uploaded anywhere — parsing happens locally.",
-        )
-
-        st.space("small")
-        with st.container(horizontal_alignment="center"):
-            st.caption(
-                "Claims are labelled Verified, Paraphrased or Unsupported by matching "
-                "each quote against the actual page text."
-            )
-
+    """The landing state. The view lives in ``ui.home``; the pipeline stays here."""
+    uploaded = home.render_landing()
     if uploaded is not None:
         _load(uploaded)
 

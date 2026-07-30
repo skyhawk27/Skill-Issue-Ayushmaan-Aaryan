@@ -33,6 +33,13 @@ ERRORS = "pl.errors"              # {feature label: message} for scoped fallback
 PANEL = "pl.panel"                # which content panel is showing
 CHAT = "pl.chat"                  # list[contracts.ChatTurn]
 
+#: Whether the reader has pressed Enter on the opening splash. The splash is a
+#: gate, not a timed flash, so it re-renders every run until this flips.
+#: Session-scoped, and deliberately not reset by :func:`reset_document` — loading
+#: a second paper is not a new session, and re-gating there would be an
+#: irritation rather than a flourish.
+SPLASH_DISMISSED = "pl.splash_dismissed"
+
 TARGET_PAGE = "pl.target_page"    # page the viewer should scroll to
 TARGET_QUOTE = "pl.target_quote"  # quote to highlight there
 TARGET_STATUS = "pl.target_status"  # its verification status, which picks the colour
@@ -59,6 +66,7 @@ _DEFAULTS: dict[str, Any] = {
     ERRORS: {},
     PANEL: "Summary",
     CHAT: [],
+    SPLASH_DISMISSED: False,
     TARGET_PAGE: 1,
     TARGET_QUOTE: "",
     TARGET_STATUS: None,

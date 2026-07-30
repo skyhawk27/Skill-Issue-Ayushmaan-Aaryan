@@ -70,11 +70,73 @@ def loaded_app(*, timeout: float = 60) -> AppTest:
     at.session_state[state.PDF_NAME] = FIXTURE.name
     at.session_state[state.DOCUMENT] = document
     at.session_state[state.BRIEF] = brief
+    # Past the splash gate: these checks are about the dashboard a reader sees
+    # after pressing Enter, not about the gate itself (covered separately).
+    at.session_state[state.SPLASH_DISMISSED] = True
     return at.run()
 
 
 def section(title: str) -> None:
     print(f"\n{title}")
+
+
+def splash_html(at_instance) -> str:
+    """Concatenated st.html output, so the splash can be located in a run."""
+    blocks = []
+    for element in at_instance.main:
+        body = getattr(element, "body", None)
+        if isinstance(body, str) and "pl-splash" in body:
+            blocks.append(body)
+    return "\n".join(blocks)
+
+
+# ── 0. Splash screen ───────────────────────────────────────────────────────
+section("Splash screen")
+from ui import splash as splash_mod  # noqa: E402
+from ui.theme import STATUS_STYLES  # noqa: E402
+
+_markup = splash_mod.markup()
+check("splash markup builds", "pl-splash" in _markup)
+check("tick reuses the badge green rather than a copied hex",
+      STATUS_STYLES["verified"].highlight in _markup,
+      f'expected {STATUS_STYLES["verified"].highlight} in the markup')
+
+# The splash is now a gate that holds indefinitely, so these safety properties
+# matter more, not less: they are what stop a fixed full-viewport overlay from
+# trapping the user if its stylesheet is stripped, unsupported or disabled.
+# Assert them so they cannot be quietly edited away.
+check("overlay never intercepts clicks", "pointer-events: none" in _markup)
+check("overlay's resting state is invisible", "opacity: 0;" in _markup)
+check("reduced motion still shows the way out",
+      "prefers-reduced-motion" in _markup and "pl_splash_enter" in _markup.split(
+          "prefers-reduced-motion")[1],
+      "reduced-motion block does not re-show the Enter button")
+
+at_splash = AppTest.from_file(APP, default_timeout=60).run()
+check("no exception on the run that shows the splash", not at_splash.exception,
+      str(at_splash.exception))
+check("splash renders on the first run", "pl-splash" in splash_html(at_splash))
+check("gate starts open", at_splash.session_state[state.SPLASH_DISMISSED] is False)
+
+_enter = [b for b in at_splash.button if b.key == "pl_splash_enter"]
+check("Enter is a real Streamlit widget, not a styled div", len(_enter) == 1,
+      f"found {len(_enter)} buttons with that key")
+
+# A gate must persist across reruns — otherwise it is a flash, not a gate.
+at_still_open = at_splash.run()
+check("splash persists on a rerun until Enter is pressed",
+      "pl-splash" in splash_html(at_still_open),
+      "splash vanished without the button being pressed")
+
+# ...and pressing Enter must actually end it, on this run and every later one.
+at_entered = at_still_open.button(key="pl_splash_enter").click().run()
+check("no exception when entering", not at_entered.exception, str(at_entered.exception))
+check("Enter dismisses the gate",
+      at_entered.session_state[state.SPLASH_DISMISSED] is True)
+check("splash is gone after entering", "pl-splash" not in splash_html(at_entered),
+      "splash markup survived the Enter click")
+check("splash stays gone on the next rerun",
+      "pl-splash" not in splash_html(at_entered.run()))
 
 
 # ── 1. Upload screen ───────────────────────────────────────────────────────
@@ -83,6 +145,52 @@ at = AppTest.from_file(APP, default_timeout=60).run()
 check("no exception on first load", not at.exception, str(at.exception))
 check("file uploader present", len(at.file_uploader) == 1)
 check("title rendered", any("PaperLens" in t.value for t in at.title))
+
+
+# ── 1b. Feature catalogue and badge legend ─────────────────────────────────
+section("Feature catalogue")
+from ui import home as home_mod  # noqa: E402
+
+
+def page_text(at_instance) -> str:
+    """All markdown/caption/subheader text in a run, for content assertions."""
+    parts = []
+    for element in at_instance.main:
+        value = getattr(element, "value", None)
+        if isinstance(value, str):
+            parts.append(value)
+    return "\n".join(parts)
+
+
+_landing_text = page_text(at)
+
+check("catalogue heading rendered", home_mod.CATALOGUE_HEADING in _landing_text)
+check("catalogue fills a clean grid (9 cards, 3 columns)",
+      len(home_mod.FEATURES) == 9 and len(home_mod.FEATURES) % 3 == 0,
+      f"{len(home_mod.FEATURES)} features would leave a ragged row")
+
+_missing = [f.title for f in home_mod.FEATURES if f.title not in _landing_text]
+check("every feature card renders", not _missing, f"missing: {_missing}")
+
+# The legend must come from STATUS_STYLES, not hardcoded copy — that is the
+# whole reason it is sourced there. Assert against the table itself.
+for _status in ("verified", "paraphrased", "unsupported"):
+    _style = STATUS_STYLES[_status]
+    check(f"legend shows {_status} from STATUS_STYLES",
+          _style.label in _landing_text and _style.blurb in _landing_text,
+          f"expected label {_style.label!r} and its blurb")
+
+check("legend omits the internal 'not verified' state",
+      STATUS_STYLES["unverified"].blurb not in _landing_text,
+      "an internal state leaked into the reader-facing legend")
+
+# The catalogue belongs to the landing screen only.
+_loaded_text = page_text(loaded_app())
+check("catalogue does not leak into the loaded dashboard",
+      home_mod.CATALOGUE_HEADING not in _loaded_text)
+check("feature cards do not leak into the loaded dashboard",
+      not any(f.title in _loaded_text for f in home_mod.FEATURES),
+      "a feature card rendered with a document loaded")
 
 
 # ── 2. Dashboard renders ───────────────────────────────────────────────────
