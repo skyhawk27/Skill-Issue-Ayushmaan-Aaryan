@@ -29,3 +29,19 @@ node_modules/
 # Test fixtures: third-party papers are downloaded on demand, not
 # redistributed through this repo. See paperlens/integration/fixtures/README.md.
 paperlens/integration/fixtures/*.pdf
+# Environment variables (API Keys)
+.env
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.py[cod]
+
+# IDE Files
+.vscode/
+.idea/
+.DS_Store
