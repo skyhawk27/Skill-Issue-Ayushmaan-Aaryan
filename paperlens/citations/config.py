@@ -12,23 +12,17 @@ from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
-# Semantic Scholar API
+# OpenAlex API
 # ---------------------------------------------------------------------------
 
-S2_API_BASE: str = "https://api.semanticscholar.org/graph/v1"
-S2_API_KEY: str | None = os.getenv("S2_API_KEY")
-
-# Fields we request from Semantic Scholar for paper details
-S2_PAPER_FIELDS: str = (
-    "title,authors,year,abstract,citationCount,url,"
-    "venue,fieldsOfStudy,openAccessPdf"
-)
+OPENALEX_API_BASE: str = "https://api.openalex.org"
+OPENALEX_API_KEY: str | None = os.getenv("OPENALEX_API_KEY")
 
 # Rate-limit / resilience
-S2_TIMEOUT_S: float = 10.0
-S2_MAX_RETRIES: int = 3
-S2_RETRY_BACKOFF_S: float = 1.0  # base for exponential backoff
-S2_CONCURRENCY_LIMIT: int = 5  # max parallel requests (semaphore)
+OPENALEX_TIMEOUT_S: float = 10.0
+OPENALEX_MAX_RETRIES: int = 3
+OPENALEX_RETRY_BACKOFF_S: float = 1.0  # base for exponential backoff
+OPENALEX_CONCURRENCY_LIMIT: int = 5  # max parallel requests (semaphore)
 
 # ---------------------------------------------------------------------------
 # Cache

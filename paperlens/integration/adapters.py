@@ -16,7 +16,7 @@ here, which does four things no panel should have to think about:
    ``verify_claim``'s ``full_text_by_page``.
 
 3. **Error isolation.** :func:`safe_call` converts an exception into a value.
-   NFR §11 requires that a Semantic Scholar outage or a Reviewer Mode crash
+   NFR §11 requires that a OpenAlex outage or a Reviewer Mode crash
    leave the rest of the dashboard usable; that is enforced structurally here
    rather than by hoping every panel remembers a try/except.
 
@@ -279,7 +279,7 @@ def _call(fn: Callable[..., Any], args: list[Any], kwargs: dict[str, Any]) -> An
     """Invoke ``fn``, awaiting it if it turns out to be a coroutine function.
 
     ``citations.explorer.explore_citations`` is ``async def`` — it fans out
-    concurrent Semantic Scholar lookups. Streamlit's script runner is synchronous,
+    concurrent OpenAlex lookups. Streamlit's script runner is synchronous,
     so somebody has to bridge that, and the adapter boundary is the right place:
     no panel should have to know whether a teammate's function happens to be
     async.

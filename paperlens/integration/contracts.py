@@ -164,7 +164,7 @@ class Reference:
     purpose: str = ""     # "why was this paper cited?"
     url: str = ""
     #: Set when metadata came from the local cache rather than a live lookup, so
-    #: the UI can be honest about it (PRD reliability note on Semantic Scholar).
+    #: the UI can be honest about it (PRD reliability note on OpenAlex).
     from_cache: bool = False
 
 
@@ -553,7 +553,7 @@ def _to_reference(item: Any) -> Reference:
                          purpose=CitationPurpose(purpose=..., relationship=...),
                          resolved=bool)
 
-    Nested values win where both exist, since a resolved Semantic Scholar title
+    Nested values win where both exist, since a resolved OpenAlex title
     is better than the raw reference string it was parsed from.
     """
     meta = _get(item, ("metadata", "paper", "paper_metadata"))
@@ -596,7 +596,7 @@ def _to_reference(item: Any) -> Reference:
         if open_access is not None:
             url = _as_str(_get(open_access, ("url",)))
 
-    # ``resolved`` is the shipped module's flag for "Semantic Scholar answered".
+    # ``resolved`` is the shipped module's flag for "OpenAlex answered".
     # Its inverse is what the UI wants to disclose: served without a live lookup.
     resolved = _get(item, ("resolved",))
     from_cache = bool(_get(item, ("from_cache", "cached"), False))

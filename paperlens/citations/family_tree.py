@@ -2,7 +2,7 @@
 citations/family_tree.py — Research Family Tree builder.
 
 Builds a citation-ancestry graph by recursively fetching references
-from Semantic Scholar, limited to the top-N most-cited papers at each
+from OpenAlex, limited to the top-N most-cited papers at each
 level (max depth=2) to keep the graph manageable.
 
 Produces a ``FamilyTree`` (nodes + edges) suitable for NetworkX / Plotly
@@ -18,7 +18,7 @@ from typing import Any, Optional
 from citations.cache import JsonFileCache
 from citations.config import FAMILY_TREE_MAX_DEPTH, FAMILY_TREE_MAX_REFS
 from citations.models import FamilyTree, FamilyTreeEdge, FamilyTreeNode
-from citations.semantic import SemanticScholarClient
+from citations.openalex import OpenAlexClient
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ async def build_family_tree(
     Parameters
     ----------
     paper_id : str
-        Semantic Scholar paper ID of the current (uploaded) paper.
+        OpenAlex paper ID of the current (uploaded) paper.
     paper_title : str
         Title of the current paper (used as the root node label).
     depth : int
@@ -51,7 +51,7 @@ async def build_family_tree(
     FamilyTree
         A graph of nodes and edges ready for visualisation.
     """
-    client = SemanticScholarClient(cache=cache)
+    client = OpenAlexClient(cache=cache)
 
     nodes: dict[str, FamilyTreeNode] = {}
     edges: list[FamilyTreeEdge] = []
@@ -88,7 +88,7 @@ async def build_family_tree(
 
 
 async def _traverse(
-    client: SemanticScholarClient,
+    client: OpenAlexClient,
     paper_id: str,
     current_depth: int,
     max_depth: int,

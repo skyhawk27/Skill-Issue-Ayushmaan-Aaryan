@@ -183,7 +183,7 @@ section("Panel navigation")
 from integration.contracts import Reference  # noqa: E402
 
 # Pre-seed references for the Citations panel. Once Member 4's real module is
-# installed it fetches Semantic Scholar live, and a rate-limited lookup with
+# installed it fetches OpenAlex live, and a rate-limited lookup with
 # retries can exceed the AppTest timeout. This check is about the panel
 # *rendering*; the fetch path is covered by the failure-isolation section below.
 _seeded_refs = (
@@ -262,7 +262,7 @@ import types  # noqa: E402
 
 
 def exploding(*_args, **_kwargs):
-    raise RuntimeError("Semantic Scholar unavailable (simulated)")
+    raise RuntimeError("OpenAlex unavailable (simulated)")
 
 
 # Inject a *real* module that raises. Patching integration.stubs would not work:

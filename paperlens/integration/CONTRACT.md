@@ -252,7 +252,7 @@ resolve, the UI falls back to `raw_text`, trimmed to roughly the title clause.
 
 **One thing to consider:** `RawReference` carries `title`, `authors_raw` and `year`
 from local parsing, but `EnrichedCitation` does not surface them — so when
-Semantic Scholar rate-limits, the year and a clean title are lost even though the
+OpenAlex rate-limits, the year and a clean title are lost even though the
 extractor found them. Carrying them onto `EnrichedCitation` would make the
 degraded state noticeably better.
 

@@ -11,11 +11,11 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
-# Semantic Scholar / Paper Metadata
+# OpenAlex / Paper Metadata
 # ---------------------------------------------------------------------------
 
 class Author(BaseModel):
-    """A paper author from Semantic Scholar."""
+    """A paper author from OpenAlex."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -24,7 +24,7 @@ class Author(BaseModel):
 
 
 class OpenAccessPdf(BaseModel):
-    """Open access PDF link from Semantic Scholar."""
+    """Open access PDF link from OpenAlex."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -34,11 +34,10 @@ class OpenAccessPdf(BaseModel):
 
 class PaperMetadata(BaseModel):
     """
-    Enriched paper metadata from Semantic Scholar.
+    Enriched paper metadata from OpenAlex.
 
-    Fields align with the Semantic Scholar Academic Graph API response
-    when requesting: title, authors, year, abstract, citationCount, url,
-    venue, fieldsOfStudy, openAccessPdf.
+    Fields roughly map to the OpenAlex API response but maintain the legacy
+    structure for downstream compatibility.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -122,7 +121,7 @@ class EnrichedCitation(BaseModel):
     raw_text: str
     metadata: Optional[PaperMetadata] = None
     purpose: Optional[CitationPurpose] = None
-    resolved: bool = False  # True if Semantic Scholar lookup succeeded
+    resolved: bool = False  # True if OpenAlex lookup succeeded
 
 
 # ---------------------------------------------------------------------------

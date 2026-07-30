@@ -1,6 +1,6 @@
 """Citations panel — PRD Feature 6, plus the Feature 7 family tree.
 
-The PRD's reliability note gets taken literally here: Semantic Scholar lookups
+The PRD's reliability note gets taken literally here: OpenAlex lookups
 can fail or rate-limit, so a missing citation count or abstract is a normal state
 this panel renders explicitly rather than an error. Nothing is invented to fill a
 gap — an unknown citation count shows as unknown, because a fabricated number in

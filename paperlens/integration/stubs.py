@@ -499,7 +499,7 @@ def analyze_references(document: Any) -> list[dict[str, Any]]:
     thing that distinguishes a real citation from an ordinary numbered list —
     usually lands on a continuation line, not the first one.
 
-    Local and offline: no Semantic Scholar lookup, so citation counts, abstracts
+    Local and offline: no OpenAlex lookup, so citation counts, abstracts
     and "why was this cited" are absent. The citations panel renders that absence
     explicitly rather than inventing values — which also keeps the PRD's
     API-failure fallback path exercised during normal development.

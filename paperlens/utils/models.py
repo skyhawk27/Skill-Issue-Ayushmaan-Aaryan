@@ -126,7 +126,7 @@ class Reference:
 
 @dataclass
 class PaperMetadata:
-    """Enriched metadata from Semantic Scholar (or cache)."""
+    """Enriched metadata from OpenAlex (or cache)."""
     title: str
     authors: str = ""
     year: Optional[int] = None
