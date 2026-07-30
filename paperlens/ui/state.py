@@ -45,6 +45,10 @@ TARGET_QUOTE = "pl.target_quote"  # quote to highlight there
 TARGET_STATUS = "pl.target_status"  # its verification status, which picks the colour
 ACTIVE_CLAIM = "pl.active_claim"  # claim_id currently selected, for the selected state
 
+#: Page whose summary the visual index is showing. Belongs to the current paper,
+#: so unlike SPLASH_DISMISSED it *is* cleared by :func:`reset_document`.
+PAGE_SELECTED = "pl.page_selected"
+
 PANELS = ("Summary", "Chat", "Citations", "Reviewer")
 
 #: Material Symbols icon per panel, used in the nav rail.
@@ -71,6 +75,7 @@ _DEFAULTS: dict[str, Any] = {
     TARGET_QUOTE: "",
     TARGET_STATUS: None,
     ACTIVE_CLAIM: None,
+    PAGE_SELECTED: None,
 }
 
 
@@ -96,7 +101,8 @@ def reset_document() -> None:
     Called when a different file is uploaded. Chat history and the selected claim
     belong to the old paper and would be actively misleading against a new one.
     """
-    for key in (DOCUMENT, BRIEF, REFERENCES, REVIEW, ACTIVE_CLAIM, TARGET_QUOTE, TARGET_STATUS):
+    for key in (DOCUMENT, BRIEF, REFERENCES, REVIEW, ACTIVE_CLAIM, TARGET_QUOTE,
+                TARGET_STATUS, PAGE_SELECTED):
         st.session_state[key] = _DEFAULTS[key]
     st.session_state[CHAT] = []
     st.session_state[ERRORS] = {}

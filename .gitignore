@@ -21,6 +21,11 @@ node_modules/
 .claude/skills/
 .kilocode/skills/
 
+# Runtime API-response caches. These speed up local reruns but are per-machine
+# artifacts of whatever paper you last opened, not source. If a curated demo
+# cache is ever wanted, that should be a deliberate, reviewed addition.
+**/.cache/
+
 # Secrets. Note the theme in paperlens/.streamlit/config.toml IS committed —
 # it is the design system, not configuration.
 .streamlit/secrets.toml

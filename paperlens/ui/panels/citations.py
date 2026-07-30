@@ -1,23 +1,35 @@
-"""Citations panel — PRD Feature 6, plus the Feature 7 family tree.
+"""Citations panel — PRD Feature 6, built to be concluded from rather than read.
 
-The PRD's reliability note gets taken literally here: OpenAlex lookups
-can fail or rate-limit, so a missing citation count or abstract is a normal state
-this panel renders explicitly rather than an error. Nothing is invented to fill a
-gap — an unknown citation count shows as unknown, because a fabricated number in
-a tool whose entire premise is verifiability would be self-defeating.
+The earlier version showed forty bordered cards and a node-link graph in which
+every reference pointed at one node. Both were the wrong *form*:
 
-The graph uses ``st.graphviz_chart``, which is native and needs no extra
-dependency. The theme's chart colours are an ink ramp, so the graph reads as
-structure rather than as a second palette competing with the verification badges.
+* A node-link diagram's job is **topology**. A star has none, so it conveyed
+  nothing at any size — enlarging it would not have helped. Influence is a
+  magnitude comparison, so it becomes a **bar chart, one hue, sorted**.
+* Past roughly seven items that all carry meaning, the right form is a **table**,
+  not more cards. Forty cards each carrying a title, caption, purpose, abstract
+  expander and link is the textbook version of that mistake.
+
+So the panel now leads with conclusions, shows one chart that supports them, and
+puts the full list in a single sortable table.
+
+The PRD's reliability note is taken literally: a missing citation count is a
+normal state rendered as *absence*, never as a fabricated number. In a product
+whose premise is verifiability, an invented figure would be self-defeating.
 """
 
 from __future__ import annotations
 
 import streamlit as st
 
-from integration import pipeline
+from integration import citation_stats, pipeline
 from integration.contracts import Document, Reference
 from ui import components, state
+
+#: One hue for magnitude, taken from the theme's ink ramp. Emphatically not the
+#: cycled categorical list: these bars are all the same measure, and colouring
+#: them differently would imply a distinction that does not exist.
+_BAR_INK = "#31302e"
 
 
 def render(doc: Document, preloaded: tuple[Reference, ...] = ()) -> None:
@@ -40,19 +52,13 @@ def render(doc: Document, preloaded: tuple[Reference, ...] = ()) -> None:
         )
         return
 
-    enriched = [r for r in references if r.citation_count is not None or r.abstract]
-    st.caption(
-        f"{len(references)} references extracted"
-        + (f" · {len(enriched)} with fetched metadata" if enriched else " · metadata not fetched")
-    )
+    stats = citation_stats.summarise(references)
 
-    tab_list, tab_graph = st.tabs(["References", "Citation graph"])
-
-    with tab_list:
-        _reference_list(references)
-
-    with tab_graph:
-        _graph(doc, references)
+    _headline(stats)
+    _chart(stats)
+    _table(references, stats)
+    _purposes(references)
+    _family_tree_note()
 
 
 def _load(doc: Document, preloaded: tuple[Reference, ...]):
@@ -72,87 +78,145 @@ def _load(doc: Document, preloaded: tuple[Reference, ...]):
     return references, error
 
 
-def _reference_list(references: tuple[Reference, ...]) -> None:
-    for position, ref in enumerate(references):
+def _headline(stats: citation_stats.CitationStats) -> None:
+    """The numbers, then the conclusions drawn from them."""
+    columns = st.columns(3)
+    columns[0].metric("References", stats.total)
+    columns[1].metric("With metadata", stats.resolved)
+    columns[2].metric("Median year", stats.median_year if stats.median_year else "—")
+
+    points = citation_stats.headline_points(stats)
+    if points:
         with st.container(border=True):
-            st.markdown(f"**{ref.title}**")
-
-            meta = [part for part in (ref.authors, ref.year) if part]
-            if ref.citation_count is not None:
-                meta.append(f"{ref.citation_count:,} citations")
-            if meta:
-                st.caption(" · ".join(meta))
-
-            if ref.from_cache:
-                st.badge("Cached metadata", icon=":material/cached:", color="gray",
-                         help="Served from the local cache rather than a live lookup.")
-
-            if ref.purpose:
-                st.markdown(f"_Why cited:_ {ref.purpose}")
-
-            if ref.abstract:
-                with st.expander("Abstract", icon=":material/article:"):
-                    st.markdown(ref.abstract)
-
-            if ref.url:
-                st.markdown(f"[Open reference]({ref.url})")
-
-            if ref.citation_count is None and not ref.abstract and not ref.purpose:
-                st.caption(
-                    ":material/cloud_off: Metadata not fetched for this reference."
-                )
-            _ = position
+            for point in points:
+                st.markdown(f"- {point}")
 
 
-def _graph(doc: Document, references: tuple[Reference, ...]) -> None:
-    """Feature 7 — the research family tree, as a Graphviz digraph.
+def _chart(stats: citation_stats.CitationStats) -> None:
+    """Influence where citation counts exist; the reference era otherwise.
 
-    Only the most-cited references are drawn. A 40-node star graph is unreadable,
-    and the point of this view is lineage, not completeness.
+    The fallback is not a consolation prize — "what years does this build on" is
+    a real conclusion, and unlike citation counts it needs no network at all.
     """
-    ranked = sorted(
-        references,
-        key=lambda r: (r.citation_count is None, -(r.citation_count or 0), r.year),
-    )[:8]
-
-    if not ranked:
-        components.empty_state("Nothing to plot", icon=":material/hub:")
+    if stats.has_citation_counts:
+        st.subheader("Most-cited references", anchor=False)
+        st.bar_chart(
+            {
+                "reference": [_short(r.title) for r in stats.top_by_citations],
+                "citations": [r.citation_count or 0 for r in stats.top_by_citations],
+            },
+            x="reference",
+            y="citations",
+            horizontal=True,   # long category names read far better on the y-axis
+            color=_BAR_INK,
+            height=300,
+        )
+        st.caption("How heavily the field leans on each — from the metadata lookup.")
         return
 
-    current = _escape(doc.title or "This paper")
+    if stats.has_years:
+        st.subheader("What this paper builds on", anchor=False)
+        st.bar_chart(
+            {
+                "year": list(stats.year_histogram),
+                "references": list(stats.year_histogram.values()),
+            },
+            x="year",
+            y="references",
+            color=_BAR_INK,
+            height=240,
+        )
+        st.caption(
+            "Publication years across the reference list. Citation counts are "
+            "unavailable, so this shows the paper's intellectual era instead."
+        )
 
-    lines = [
-        "digraph G {",
-        '  rankdir=BT;',
-        '  bgcolor="transparent";',
-        '  node [shape=box, style="rounded,filled", fontname="Inter", fontsize=10,'
-        '        color="#e6e6e6", fillcolor="#ffffff", fontcolor="#000000", margin="0.14,0.09"];',
-        '  edge [color="#a39e98", arrowsize=0.6];',
-        f'  current [label="{current}", fillcolor="#000000", fontcolor="#ffffff"];',
+
+def _table(references: tuple[Reference, ...], stats: citation_stats.CitationStats) -> None:
+    """Every reference in one sortable table, in place of forty cards."""
+    st.subheader("All references", anchor=False)
+
+    rows = [
+        {
+            "Title": ref.title,
+            "Authors": ref.authors,
+            "Year": _as_year(ref.year),
+            "Citations": ref.citation_count,
+            "Link": ref.url or None,
+        }
+        for ref in references
     ]
 
-    for i, ref in enumerate(ranked):
-        label = _escape(_shorten(ref.title))
-        if ref.year:
-            label += f"\\n{ref.year}"
-        lines.append(f'  ref{i} [label="{label}"];')
-        lines.append(f"  ref{i} -> current;")
+    column_config: dict[str, object] = {
+        "Title": st.column_config.TextColumn("Title", width="large"),
+        "Authors": st.column_config.TextColumn("Authors", width="medium"),
+        "Year": st.column_config.NumberColumn("Year", format="%d", width="small"),
+    }
 
-    lines.append("}")
+    # Only offer columns that carry data. An all-empty column is noise, and an
+    # empty ProgressColumn renders as a row of zero-width bars that look broken.
+    if stats.has_citation_counts:
+        column_config["Citations"] = st.column_config.ProgressColumn(
+            "Citations",
+            help="How often this reference has been cited.",
+            format="%d",
+            min_value=0,
+            max_value=max((r.citation_count or 0) for r in references) or 1,
+        )
+    else:
+        for row in rows:
+            row.pop("Citations", None)
 
-    st.graphviz_chart("\n".join(lines), width="stretch")
+    if any(row.get("Link") for row in rows):
+        column_config["Link"] = st.column_config.LinkColumn(
+            "Link", display_text="Open", width="small"
+        )
+    else:
+        for row in rows:
+            row.pop("Link", None)
+
+    st.dataframe(
+        rows,
+        column_config=column_config,
+        hide_index=True,
+        width="stretch",
+        height=min(420, 45 + 35 * len(rows)),
+    )
+    st.caption("Sortable — click a column header to rank by year or citations.")
+
+
+def _purposes(references: tuple[Reference, ...]) -> None:
+    """Why each work was cited, behind one expander rather than forty inline blocks."""
+    explained = [r for r in references if r.purpose]
+    if not explained:
+        return
+
+    with st.expander(f"Why these were cited ({len(explained)})", icon=":material/psychology:"):
+        for ref in explained:
+            st.markdown(f"**{_short(ref.title, 70)}** — {ref.purpose}")
+
+
+def _family_tree_note() -> None:
+    """Say why the advertised family tree is not here, rather than just omitting it.
+
+    Building it needs *this* paper resolved to an OpenAlex id plus multi-level
+    lookups outward from it, which does not happen for an arbitrary uploaded PDF.
+    The homepage lists the feature, so silence would read as a bug.
+    """
     st.caption(
-        "Most-cited references feeding into this paper. "
-        + ("Ordered by citation count." if ranked[0].citation_count is not None
-           else "Citation counts unavailable, so ordering is by appearance.")
+        ":material/hub: A research family tree needs this paper itself resolved in "
+        "OpenAlex, which is not available for an uploaded PDF. The chart above "
+        "shows what it builds on instead."
     )
 
 
-def _shorten(title: str, limit: int = 40) -> str:
-    title = title.strip()
+def _as_year(year: str) -> int | None:
+    try:
+        return int(str(year).strip()[:4])
+    except (TypeError, ValueError):
+        return None
+
+
+def _short(title: str, limit: int = 44) -> str:
+    title = (title or "Untitled").strip()
     return title if len(title) <= limit else title[: limit - 1].rstrip() + "…"
-
-
-def _escape(text: str) -> str:
-    """Graphviz labels are quoted strings; escape what would break out of them."""
-    return text.replace("\\", " ").replace('"', "'").replace("\n", " ")

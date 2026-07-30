@@ -33,6 +33,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from integration.textblocks import references_text
+
 # ─── Shared text helpers ───────────────────────────────────────────────────
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(])")
@@ -211,25 +213,10 @@ def process_pdf(pdf_path: str) -> dict[str, Any]:
         # reference block as one string. Supplying it matters — a reference list
         # spans several pages, so handing over only the page the heading sits on
         # truncates it badly.
-        "references_text": _references_text(full_text_by_page),
+        "references_text": references_text(full_text_by_page),
     }
 
 
-def _references_text(full_text_by_page: dict[int, str]) -> str:
-    """Everything from the 'References' heading to the end of the document."""
-    heading = re.compile(r"^\s*(references|bibliography|works cited)\s*$",
-                         re.IGNORECASE | re.MULTILINE)
-
-    ordered = sorted(full_text_by_page)
-    for page_no in ordered:
-        match = heading.search(full_text_by_page[page_no] or "")
-        if not match:
-            continue
-        # Start just after the heading, then take every following page whole.
-        parts = [full_text_by_page[page_no][match.end():]]
-        parts.extend(full_text_by_page[p] or "" for p in ordered if p > page_no)
-        return "\n".join(parts)
-    return ""
 
 
 def _title_from_first_page(page: Any) -> str:
@@ -398,7 +385,57 @@ def generate_brief(document: Any) -> dict[str, list[dict[str, Any]]]:
                 {"text": sentence, "quote": sentence, "page": first_page}
             )
 
+    # The overview surfaces (abstract + visual page index) read these keys. The
+    # real summarizer cannot even be imported without NVIDIA_API_KEY, so without
+    # them the whole feature would be invisible on any machine lacking that key.
+    brief["page_by_page_summaries"] = _page_digests(pages)
+    brief["global_synthesis"] = _local_synthesis(brief)
     return brief
+
+
+#: Sentences to lift per page for the extractive page digest. Two is enough to
+#: say what a page covers without turning the index into a wall of text.
+_DIGEST_SENTENCES = 2
+
+
+def _page_digests(pages: dict[int, str]) -> list[dict[str, Any]]:
+    """A short extractive digest per page, for the visual index.
+
+    Genuinely the page's own opening sentences — not invented prose. Where a page
+    yields no usable sentence (a figure or a table page), the entry is present
+    with an empty summary so the index still lists every page for navigation.
+    """
+    digests: list[dict[str, Any]] = []
+    for page_no in sorted(pages):
+        sentences = _sentences(pages[page_no])[:_DIGEST_SENTENCES]
+        digests.append(
+            {"page_number": page_no, "summary": " ".join(sentences).strip()}
+        )
+    return digests
+
+
+def _local_synthesis(brief: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    """An abstract assembled from the claims already selected.
+
+    Reuses the cue-matched sentences rather than generating anything, so it stays
+    extractive and honest — the same trade the rest of this module makes.
+    """
+    def first_text(section: str) -> str:
+        picks = brief.get(section) or []
+        return picks[0].get("text", "") if picks else ""
+
+    return {
+        "contributions_summary": first_text("Main contribution"),
+        "methodology_summary": first_text("Methodology"),
+        "results_summary": first_text("Results"),
+        "limitations_summary": first_text("Limitations"),
+        "conclusion": "",
+        # No prerequisites. Naming the concepts a reader needs first requires
+        # actually understanding the paper; the closest thing available here is a
+        # truncated sentence, which would read as a concept label without being
+        # one. An absent list is better than a misleading one.
+        "prerequisites": [],
+    }
 
 
 def _pages_of(document: Any) -> dict[int, str]:

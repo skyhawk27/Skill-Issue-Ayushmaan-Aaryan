@@ -10,7 +10,7 @@ from __future__ import annotations
 import streamlit as st
 
 from integration.contracts import Brief, Document
-from ui import components, state
+from ui import components, overview, state
 
 
 def render(doc: Document, brief: Brief) -> None:
@@ -25,7 +25,18 @@ def render(doc: Document, brief: Brief) -> None:
             st.code(error, language="text")
         return
 
+    # Overview first, then navigation, then the checked claims — the order a
+    # reader actually works in. Each part draws only if it has content, so a
+    # brief without them degrades to exactly the panel this used to be.
+    overview.render_abstract(brief.abstract)
+    if brief.page_summaries or doc.page_count:
+        overview.render_page_index(doc, brief.page_summaries)
+
     if not brief.claims:
+        if not brief.abstract.is_empty or brief.page_summaries:
+            # There is still an overview above; a full-panel empty state here
+            # would wrongly imply the panel had nothing at all.
+            return
         components.empty_state(
             "No claims yet",
             "The summarizer returned nothing for this paper.",

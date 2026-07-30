@@ -48,6 +48,7 @@ ui/
   dashboard.py             render_dashboard(document, brief, citations)  ← contract fn
   theme.py                 status semantics + the few tokens Python needs
   components.py            badge, claim card, tally, empty/error states
+  overview.py              abstract + visual page index (top of Summary)
   pdf_pane.py              viewer, page nav, highlight overlay
   splash.py                opening animation — the ONLY custom CSS in the app
   export.py                verified summary export (Feature 10)
@@ -57,6 +58,7 @@ integration/
   adapters.py              import-or-fallback, signature-tolerant dispatch, error isolation
   contracts.py             UI dataclasses + tolerant normalisers
   highlight.py             quote → PDF bounding boxes
+  thumbnails.py            cached page thumbnails for the visual index
   pipeline.py              upload → parsed → verified orchestration
   stubs.py                 local stand-ins for the other four modules
 tests/dashboard_checks.py  60 headless checks over the PRD success criteria

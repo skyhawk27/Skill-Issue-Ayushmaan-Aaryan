@@ -150,7 +150,9 @@ def ensure_verified(brief: Brief, document: Document) -> tuple[Brief, str]:
             )
         )
 
-    return Brief(claims=tuple(verified_claims)), error
+    # replace(), not Brief(...): a fresh construction would silently drop the
+    # abstract and page summaries that arrived with the claims.
+    return replace(brief, claims=tuple(verified_claims)), error
 
 
 # ─── Lazy stages ───────────────────────────────────────────────────────────

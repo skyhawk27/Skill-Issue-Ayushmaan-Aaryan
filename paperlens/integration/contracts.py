@@ -46,7 +46,16 @@ _CONFIDENCE_KEYS = ("confidence", "confidence_label")
 
 
 def _get(obj: Any, keys: Sequence[str], default: Any = None) -> Any:
-    """Read the first present key/attribute from a dict or an object."""
+    """Read the first present key/attribute from a dict or an object.
+
+    The callable guard is not paranoia. Several of the key names we probe for
+    (``title``, ``text``, ``page``, ``name``) are also **built-in methods** on
+    ordinary types, so ``getattr("Attention", "title")`` returns ``str.title``
+    — a bound method, which is not ``None`` and would sail straight through.
+    That is how a list of plain strings once produced a claim whose section read
+    ``<built-in method title of str object at 0x107a17cb0>``. Any teammate
+    returning bare strings would hit it.
+    """
     if obj is None:
         return default
     if isinstance(obj, dict):
@@ -56,7 +65,7 @@ def _get(obj: Any, keys: Sequence[str], default: Any = None) -> Any:
         return default
     for key in keys:
         value = getattr(obj, key, None)
-        if value is not None:
+        if value is not None and not callable(value):
             return value
     return default
 
@@ -178,10 +187,48 @@ class ReviewerFinding:
 
 
 @dataclass(frozen=True)
+class PageSummary:
+    """What one page of the paper is about, for the visual page index."""
+
+    page: int
+    summary: str = ""
+
+    @property
+    def has_summary(self) -> bool:
+        return bool(self.summary.strip())
+
+
+@dataclass(frozen=True)
+class Abstract:
+    """The plain-language overview shown above the page index.
+
+    ``points`` are ``(label, text)`` pairs rather than bare strings so the UI can
+    lead each bullet with what it answers — "What it found: …" reads far faster
+    than an unlabelled paragraph, which is the whole reason this is bulleted.
+    """
+
+    points: tuple[tuple[str, str], ...] = ()
+    prerequisites: tuple[str, ...] = ()
+    conclusion: str = ""
+
+    @property
+    def is_empty(self) -> bool:
+        return not (self.points or self.prerequisites or self.conclusion.strip())
+
+
+@dataclass(frozen=True)
 class Brief:
-    """The structured summary: PRD Feature 3's sections, as verified claims."""
+    """The structured summary: verified claims, plus the reader-facing overview.
+
+    ``abstract`` and ``page_summaries`` ride along with the claims because they
+    come from the same ``generate_brief`` payload and are shown together. Anything
+    rebuilding a ``Brief`` must carry them forward — use
+    :func:`dataclasses.replace` rather than constructing a fresh one.
+    """
 
     claims: tuple[Claim, ...] = ()
+    abstract: Abstract = field(default_factory=Abstract)
+    page_summaries: tuple[PageSummary, ...] = ()
 
     def by_section(self) -> dict[str, list[Claim]]:
         """Group claims under their section heading, preserving first-seen order."""
@@ -343,6 +390,10 @@ def to_brief(payload: Any) -> Brief:
     if payload is None:
         return Brief()
 
+    # Held before the unwrapping below reassigns `payload`, so the abstract and
+    # page summaries are read from what the module actually returned.
+    original = payload
+
     structured = _structured_summary_sections(payload)
     if structured is not None:
         payload = structured
@@ -358,6 +409,12 @@ def to_brief(payload: Any) -> Brief:
 
     if isinstance(payload, dict):
         for section, value in payload.items():
+            if _is_metadata_key(section):
+                # Not a section of claims — document metadata, the abstract, or
+                # the page summaries, all of which have their own normalisers.
+                # Without this every one of them became a claim card: a real
+                # payload produced nine claims where one was correct.
+                continue
             section_name = _prettify_section(section)
             if isinstance(value, (list, tuple)):
                 for i, item in enumerate(value):
@@ -378,7 +435,106 @@ def to_brief(payload: Any) -> Brief:
             claims.append(to_claim(item, section="Summary", index=len(claims)))
 
     claims.sort(key=lambda c: _section_rank(c.section))
-    return Brief(claims=tuple(claims))
+    return Brief(
+        claims=tuple(claims),
+        abstract=to_abstract(original),
+        page_summaries=to_page_summaries(original),
+    )
+
+
+#: The four synthesis fields, paired with the question each one answers. The
+#: label is what makes the abstract scannable, so it is part of the contract
+#: here rather than left to the UI.
+_ABSTRACT_POINTS: tuple[tuple[str, str], ...] = (
+    ("contributions_summary", "Contributes"),
+    ("methodology_summary", "How it works"),
+    ("results_summary", "What it found"),
+    ("limitations_summary", "Limitations"),
+)
+
+
+def to_abstract(payload: Any) -> Abstract:
+    """Build the plain-language overview from a brief payload.
+
+    Reads ``global_synthesis`` first and falls back to the top level, because the
+    summarizer returns ``conclusion`` and ``prerequisites`` in *both* places and
+    only the nested copy is guaranteed to be the synthesised one.
+    """
+    if payload is None:
+        return Abstract()
+
+    synthesis = _get(payload, ("global_synthesis", "synthesis")) or {}
+
+    def field(*keys: str) -> Any:
+        value = _get(synthesis, keys)
+        return value if value is not None else _get(payload, keys)
+
+    points: list[tuple[str, str]] = []
+    for key, label in _ABSTRACT_POINTS:
+        text = _as_str(field(key))
+        if text:
+            points.append((label, text))
+
+    raw_prerequisites = field("prerequisites", "prereqs", "background") or ()
+    if isinstance(raw_prerequisites, str):
+        raw_prerequisites = [raw_prerequisites]
+    prerequisites = tuple(
+        _as_str(p) for p in raw_prerequisites
+        if isinstance(raw_prerequisites, (list, tuple)) and _as_str(p)
+    )
+
+    return Abstract(
+        points=tuple(points),
+        prerequisites=prerequisites,
+        conclusion=_as_str(field("conclusion", "takeaway", "overview")),
+    )
+
+
+def to_page_summaries(payload: Any) -> tuple[PageSummary, ...]:
+    """Build the per-page summaries that the visual index navigates."""
+    if payload is None:
+        return ()
+
+    raw = _get(payload, ("page_by_page_summaries", "page_summaries", "pages"))
+    if not isinstance(raw, (list, tuple)):
+        return ()
+
+    summaries: list[PageSummary] = []
+    for i, item in enumerate(raw, start=1):
+        if isinstance(item, str):
+            summaries.append(PageSummary(page=i, summary=item.strip()))
+            continue
+        page = _as_int(_get(item, _PAGE_KEYS))
+        summary = _as_str(_get(item, ("summary", "page_summary", "text", "content")))
+        if page is None:
+            page = i
+        summaries.append(PageSummary(page=page, summary=summary))
+
+    # Deduplicate by page, keeping the first, then order for display.
+    seen: set[int] = set()
+    unique = [s for s in summaries if not (s.page in seen or seen.add(s.page))]
+    return tuple(sorted(unique, key=lambda s: s.page))
+
+
+#: Top-level keys of a brief payload that are *not* sections of claims. Each is
+#: either document metadata or is consumed by another normaliser
+#: (:func:`to_abstract`, :func:`to_page_summaries`). Matched case-insensitively
+#: with separators normalised, so ``page_by_page_summaries`` and
+#: ``pageByPageSummaries`` are both caught.
+_METADATA_KEYS = frozenset(
+    {
+        "papertitle", "title", "paper", "filename", "docid", "id",
+        "totalpagesprocessed", "pagecount", "numpages", "totalpages",
+        "pagebypagesummaries", "pagesummaries", "pages",
+        "globalsynthesis", "synthesis", "conclusion", "abstract",
+        "prerequisites", "metadata", "meta", "stats",
+    }
+)
+
+
+def _is_metadata_key(key: Any) -> bool:
+    normalised = str(key).lower().replace("_", "").replace("-", "").replace(" ", "")
+    return normalised in _METADATA_KEYS
 
 
 #: Attribute name on a StructuredSummary-style object → display section name.
@@ -468,6 +624,32 @@ def to_chat_turn(question: str, payload: Any) -> ChatTurn:
         confidence=_as_str(_get(payload, _CONFIDENCE_KEYS)),
         no_evidence=no_evidence,
     )
+
+
+#: A plausible publication year. Bounded so a page number, an arXiv id or a
+#: four-digit figure in a title cannot be mistaken for one.
+_REFERENCE_YEAR = re.compile(r"\b(1[89]\d{2}|20[0-4]\d)\b")
+
+
+def _resolve_year(metadata_year: Any, item: Any) -> str:
+    """The publication year, recovered from raw text when metadata has none.
+
+    Reference extraction parses a year locally, but the enriched citation object
+    does not surface it — so whenever the metadata lookup fails or is
+    unconfigured, a year that was already known gets thrown away. Re-reading it
+    from ``raw_text`` keeps the recency conclusions working with no network at
+    all.
+
+    Takes the *last* match: entries read "Authors. Title. Venue, 2017." and a
+    title can itself contain a year ("ImageNet 2012 challenge").
+    """
+    year = _as_str(metadata_year)
+    if year:
+        return year
+
+    raw = _as_str(_get(item, ("raw_text", "raw", "text")))
+    matches = _REFERENCE_YEAR.findall(raw)
+    return matches[-1] if matches else ""
 
 
 def _trim_reference_text(text: str) -> str:
@@ -606,7 +788,7 @@ def _to_reference(item: Any) -> Reference:
     return Reference(
         title=title,
         authors=_as_str(authors),
-        year=_as_str(pick(("year", "published_year", "date"))),
+        year=_resolve_year(pick(("year", "published_year", "date")), item),
         citation_count=_as_int(pick(("citation_count", "citationCount", "cited_by"))),
         abstract=_as_str(pick(("abstract", "summary"))),
         purpose=purpose,

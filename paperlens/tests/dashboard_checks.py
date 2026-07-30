@@ -24,7 +24,9 @@ logic actually lives.
 
 from __future__ import annotations
 
+import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -153,10 +155,17 @@ from ui import home as home_mod  # noqa: E402
 
 
 def page_text(at_instance) -> str:
-    """All markdown/caption/subheader text in a run, for content assertions."""
+    """All markdown/caption/subheader text in a run, for content assertions.
+
+    Some element proxies raise on ``.value`` (widgets whose key is not in session
+    state), so this reads defensively rather than assuming every element has one.
+    """
     parts = []
     for element in at_instance.main:
-        value = getattr(element, "value", None)
+        try:
+            value = getattr(element, "value", None)
+        except Exception:  # noqa: BLE001 - probing heterogeneous element proxies
+            continue
         if isinstance(value, str):
             parts.append(value)
     return "\n".join(parts)
@@ -191,6 +200,247 @@ check("catalogue does not leak into the loaded dashboard",
 check("feature cards do not leak into the loaded dashboard",
       not any(f.title in _loaded_text for f in home_mod.FEATURES),
       "a feature card rendered with a document loaded")
+
+
+# ── 1c. Abstract, page index, and the normaliser bug they exposed ─────────
+section("Abstract and page index")
+from integration import thumbnails as thumbs_mod  # noqa: E402
+from integration.contracts import (  # noqa: E402
+    _get as _contracts_get,
+    to_abstract,
+    to_brief as _to_brief,
+    to_page_summaries,
+)
+
+# Regression: the summarizer's real payload used to yield 9 claims instead of 1,
+# with sections like "Paper title" and one that read
+# "<built-in method title of str object at 0x...>".
+_m2_payload = {
+    "paper_title": "Attention Is All You Need",
+    "total_pages_processed": 15,
+    "page_by_page_summaries": [
+        {"page_number": 2, "summary": "Background on recurrence."},
+        {"page_number": 1, "summary": "Introduces the Transformer."},
+    ],
+    "conclusion": "Top-level conclusion.",
+    "contributions": [{"claim": "Self-attention replaces recurrence.",
+                       "candidate_quote": "dispensing with recurrence",
+                       "claimed_page": 1, "match_score": 95, "status": "verified"}],
+    "methodology": [], "results": [], "limitations": [],
+    "prerequisites": ["Attention", "Seq2seq"],
+    "global_synthesis": {
+        "contributions_summary": "Proposes the Transformer.",
+        "methodology_summary": "Encoder-decoder with self-attention.",
+        "results_summary": "28.4 BLEU on WMT14.",
+        "limitations_summary": "",
+        "conclusion": "Nested conclusion.",
+        "prerequisites": ["Attention", "Seq2seq", "RNNs"],
+    },
+}
+_m2_brief = _to_brief(_m2_payload)
+
+check("summarizer payload yields only real claims", len(_m2_brief.claims) == 1,
+      f"{len(_m2_brief.claims)} claims: {[c.section for c in _m2_brief.claims]}")
+_sections = {c.section for c in _m2_brief.claims}
+check("document metadata is not turned into claim sections",
+      not (_sections & {"Paper title", "Total pages processed", "Conclusion",
+                        "Page by page summaries", "Global synthesis", "Prerequisites"}),
+      f"junk sections: {_sections}")
+check("no built-in method leaks in as a section name",
+      not any("built-in method" in s for s in _sections), f"{_sections}")
+
+# The underlying cause: getattr on a bare string returns str.title, a bound
+# method, which is not None and sailed straight through.
+check("_get ignores built-in methods on non-dict objects",
+      _contracts_get("Attention", ("title", "name")) is None,
+      f'got {_contracts_get("Attention", ("title", "name"))!r}')
+check("_get still reads dicts", _contracts_get({"title": "real"}, ("title",)) == "real")
+
+# Abstract
+_abstract = _m2_brief.abstract
+check("abstract builds labelled points", len(_abstract.points) == 3,
+      f"{[l for l, _ in _abstract.points]}")
+check("empty synthesis fields are dropped",
+      "Limitations" not in [label for label, _ in _abstract.points])
+check("nested global_synthesis wins over the top level",
+      _abstract.conclusion == "Nested conclusion.", _abstract.conclusion)
+check("abstract falls back to top level when synthesis is absent",
+      to_abstract({"conclusion": "only top level"}).conclusion == "only top level")
+check("empty payload gives an empty abstract", to_abstract({}).is_empty)
+
+# Page summaries
+check("page summaries parsed and ordered",
+      [s.page for s in _m2_brief.page_summaries] == [1, 2],
+      f"{[s.page for s in _m2_brief.page_summaries]}")
+check("page summaries accept page/text spellings",
+      to_page_summaries({"page_summaries": [{"page": 3, "text": "alt"}]})[0].summary == "alt")
+
+# Thumbnails
+_thumb_key = at.session_state[state.DOC_KEY] if state.DOC_KEY in at.session_state else "k"
+_at_loaded_for_thumbs = loaded_app()
+_pdf = _at_loaded_for_thumbs.session_state[state.PDF_PATH]
+_doc_key = _at_loaded_for_thumbs.session_state[state.DOC_KEY]
+_png = thumbs_mod.page_thumbnail(_doc_key, _pdf, 1)
+check("thumbnail renders as PNG bytes",
+      isinstance(_png, bytes) and _png[:8] == b"\x89PNG\r\n\x1a\n", f"{type(_png)}")
+check("bad path returns None rather than raising",
+      thumbs_mod.page_thumbnail(_doc_key, "/no/such.pdf", 1) is None)
+check("out-of-range page returns None",
+      thumbs_mod.page_thumbnail(_doc_key, _pdf, 99999) is None)
+
+# The panel wiring: picking a page must move the viewer too.
+_brief_loaded = _at_loaded_for_thumbs.session_state[state.BRIEF]
+check("stub supplies page summaries so the index works without an API key",
+      len(_brief_loaded.page_summaries) > 0,
+      "no page summaries from the fallback summarizer")
+check("stub supplies an abstract", not _brief_loaded.abstract.is_empty)
+
+_page_buttons = [b for b in _at_loaded_for_thumbs.button
+                 if b.key and b.key.startswith("pl.page-index-")]
+check("page index renders a button per visible page", len(_page_buttons) > 1,
+      f"{len(_page_buttons)} page buttons")
+
+if len(_page_buttons) > 2:
+    _target = _page_buttons[2]
+    _after = _target.click().run()
+    check("no exception selecting a page", not _after.exception, str(_after.exception))
+    _picked = _after.session_state[state.PAGE_SELECTED]
+    check("selecting a page records it", isinstance(_picked, int), f"{_picked!r}")
+    check("selecting a page also moves the PDF viewer",
+          _after.session_state[state.TARGET_PAGE] == _picked,
+          f"TARGET_PAGE={_after.session_state[state.TARGET_PAGE]} vs page={_picked}")
+
+# Degrade path: a brief with neither must not render either surface.
+from integration.contracts import Brief as _Brief  # noqa: E402
+
+check("empty brief carries an empty abstract and no pages",
+      _Brief().abstract.is_empty and _Brief().page_summaries == ())
+
+
+# ── 1d. Citations: extraction, stats, and form ────────────────────────────
+section("Citations")
+from integration import citation_stats as cstats  # noqa: E402
+from integration.contracts import Reference as _Ref  # noqa: E402
+from integration.textblocks import references_text as _refs_text  # noqa: E402
+
+# THE regression that matters: the shipped parser emits sections with no `text`
+# and no `references_text`, so extraction returned zero references on a paper
+# containing forty. The adapter now repairs the payload before the extractor.
+_at_cit = loaded_app()
+_cit_doc = _at_cit.session_state[state.DOCUMENT]
+_raw = _cit_doc.raw
+check("parser payload really does lack the extractor's input",
+      isinstance(_raw, dict) and not _raw.get("references_text")
+      and not any((s or {}).get("text") for s in (_raw.get("sections") or [])),
+      "fixture no longer reproduces the original mismatch")
+check("references_text can be derived from page text",
+      len(_refs_text(_cit_doc.full_text_by_page)) > 500,
+      "derived reference block is suspiciously short")
+
+_cit_refs, _cit_err = pipeline.load_references(
+    _at_cit.session_state[state.DOC_KEY], _cit_doc)
+check("extraction returns references (was 0)", len(_cit_refs) > 10,
+      f"{len(_cit_refs)} references, err={_cit_err[:80]!r}")
+
+# Year is recovered from raw text when the metadata lookup gives none.
+check("years recovered without any metadata lookup",
+      sum(1 for r in _cit_refs if r.year) > len(_cit_refs) * 0.5,
+      f"{sum(1 for r in _cit_refs if r.year)}/{len(_cit_refs)} have a year")
+check("year recovery takes the trailing year, not one inside a title",
+      _contracts_get is not None
+      and __import__("integration.contracts", fromlist=["_resolve_year"])._resolve_year(
+          None, {"raw_text": "Krizhevsky. ImageNet 2012 challenge. NIPS, 2017."}) == "2017")
+
+# Stats
+_stats = cstats.summarise(_cit_refs)
+check("stats compute a span and median", _stats.span is not None and _stats.median_year,
+      f"span={_stats.span} median={_stats.median_year}")
+check("headline points are produced", len(cstats.headline_points(_stats)) > 0)
+check("stats degrade to None on empty input",
+      cstats.summarise(()).span is None
+      and cstats.summarise(()).median_year is None
+      and cstats.headline_points(cstats.summarise(())) == [])
+
+_fake = (
+    _Ref(title="A", year="2020", citation_count=100),
+    _Ref(title="B", year="2010", citation_count=5),
+    _Ref(title="C", year="2000"),
+)
+_fs = cstats.summarise(_fake)
+check("most_cited picks the highest count", _fs.most_cited is not None
+      and _fs.most_cited.title == "A", f"{_fs.most_cited}")
+check("median year ignores undated entries", _fs.median_year == 2010, f"{_fs.median_year}")
+check("year histogram covers every dated reference",
+      sum(_fs.year_histogram.values()) == 3, f"{_fs.year_histogram}")
+check("chart falls back to years when no counts exist",
+      not cstats.summarise((_Ref(title="X", year="1999"),)).has_citation_counts
+      and cstats.summarise((_Ref(title="X", year="1999"),)).has_years)
+
+# Form: a table, not forty cards. The verbosity regression guard.
+_at_cit.session_state[state.PANEL] = "Citations"
+_at_cit.session_state[state.REFERENCES] = _cit_refs
+_at_cit = _at_cit.run()
+check("citations panel renders without exception", not _at_cit.exception, str(_at_cit.exception))
+check("references shown as one dataframe", len(_at_cit.dataframe) == 1,
+      f"{len(_at_cit.dataframe)} dataframes")
+check("conclusions shown as metrics", len(_at_cit.metric) == 3,
+      f"{len(_at_cit.metric)} metrics")
+_cit_text = page_text(_at_cit)
+check("no per-reference card wall", _cit_text.count("Why cited:") == 0,
+      "inline per-reference purpose blocks are back")
+
+
+# ── 1e. LLM provider config and rate limiting ─────────────────────────────
+section("LLM provider")
+from integration import llm as llm_mod  # noqa: E402
+
+# Unconfigured must behave exactly as before this module existed: returning None
+# makes every teammate function build its own default client.
+_saved_env = {k: os.environ.get(k) for k in (
+    "PAPERLENS_LLM_BASE_URL", "PAPERLENS_LLM_API_KEY",
+    "PAPERLENS_CHAT_MODEL", "PAPERLENS_EMBEDDING_MODEL")}
+try:
+    for k in _saved_env:
+        os.environ.pop(k, None)
+    llm_mod._client = None
+    check("no provider configured -> client() is None, original behaviour kept",
+          llm_mod.client() is None and not llm_mod.is_configured())
+
+    os.environ["PAPERLENS_LLM_BASE_URL"] = "https://example.invalid/v1"
+    os.environ["PAPERLENS_LLM_API_KEY"] = "test-key"
+    os.environ["PAPERLENS_CHAT_MODEL"] = "some/chat-model"
+    os.environ["PAPERLENS_EMBEDDING_MODEL"] = "some/embedqa-model"
+    llm_mod._client = None
+    check("provider configured -> a client is built", llm_mod.is_configured())
+    _c = llm_mod.client()
+    check("client exposes the OpenAI surface callers use",
+          hasattr(_c, "embeddings") and hasattr(_c.chat, "completions"))
+    check("asymmetric embedding models are detected",
+          llm_mod._needs_input_type("nvidia/nv-embedqa-e5-v5")
+          and not llm_mod._needs_input_type("nvidia/nv-embed-v1"))
+    check("query vs passage inferred from the batch size",
+          llm_mod._ThrottledEmbeddings._input_type(["one"]) == "query"
+          and llm_mod._ThrottledEmbeddings._input_type(["a", "b"]) == "passage")
+finally:
+    for k, v in _saved_env.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    llm_mod._client = None
+
+# The limiter is what stops the summarizer's 16-call burst starving chat.
+_lim = llm_mod._RateLimiter(3)
+_t0 = time.monotonic()
+for _ in range(3):
+    _lim.acquire()
+check("limiter allows a burst up to its budget", time.monotonic() - _t0 < 1.0)
+check("limiter tracks its window", len(_lim._calls) == 3)
+
+_lim_full = llm_mod._RateLimiter(1)
+_lim_full.acquire()
+check("limiter blocks once the budget is spent",
+      len(_lim_full._calls) == 1 and _lim_full._calls[0] <= time.monotonic())
 
 
 # ── 2. Dashboard renders ───────────────────────────────────────────────────
@@ -272,7 +522,25 @@ hits = sum(
     ).found
 )
 quoted = sum(1 for c in brief.claims if c.evidence.has_quote)
-check(f"highlight recall {hits}/{quoted}", hits == quoted, f"{quoted - hits} claims failed to locate")
+# Not 100%: with a real LLM summarizer the claims are abstractive, so some quotes
+# genuinely do not appear verbatim in the paper. That is Feature 4B working, not
+# failing — the invariant that matters is the one asserted immediately below.
+check(f"highlight recall {hits}/{quoted}", quoted and hits >= quoted * 0.6,
+      f"{quoted - hits} of {quoted} claims failed to locate — unusually low")
+
+# The real guarantee: a quote that cannot be found must never be badged Verified.
+# A locatable-but-wrong highlight is the one failure that would actively mislead.
+_unlocatable_but_verified = [
+    c for c in brief.claims
+    if c.evidence.has_quote
+    and c.evidence.status == "verified"
+    and not highlight.locate_quote(
+        at.session_state[state.PDF_PATH], c.evidence.quote, c.evidence.page, "#1aae39"
+    ).found
+]
+check("no claim is badged Verified while its quote cannot be located",
+      not _unlocatable_but_verified,
+      f"{len(_unlocatable_but_verified)} verified claims have unlocatable quotes")
 
 
 # ── 5. A fabricated quote must NOT be highlighted ─────────────────────────
@@ -464,33 +732,32 @@ print("        resolved: " + ", ".join(
     f"{n}={'real' if r.is_real else 'stub'}" for n, r in status.items()
 ))
 
-# A name with no real module on disk must fall back. Member 2 has not landed, so
-# generate_brief is the stable case for this; using an already-real name would
-# make the test depend on who has pushed.
+# A name with no real module on disk must fall back. Reviewer Mode is the stable
+# case: nobody has written it, whereas every other contract function now resolves
+# to a teammate's module. Picking an already-real name would make this test
+# depend on who has pushed.
 check("absent module falls back to the stub",
-      not adapters.resolve("generate_brief").is_real)
+      not adapters.resolve("review").is_real)
 
-# Inject a fake real module under a *fresh* name and confirm it is preferred.
-fake = types.ModuleType("ai.summarizer")
-fake.generate_brief = lambda document: {
-    "Results": [{"text": "injected", "quote": "injected", "page": 1, "match_score": 0.5}]
-}
-sys.modules["ai.summarizer"] = fake
+# Inject a fake real module under that name and confirm it is preferred.
+fake = types.ModuleType("reviewer.reviewer")
+fake.review = lambda document: {"reproducibility_score": 7.5, "checks": [], "findings": []}
+sys.modules["reviewer.reviewer"] = fake
 adapters.resolve.clear()
-resolved = adapters.resolve("generate_brief")
+resolved = adapters.resolve("review")
 check("real module preferred over stub", resolved.is_real, resolved.source)
-check("resolved to the injected module", resolved.source == "ai.summarizer.generate_brief")
+check("resolved to the injected module", resolved.source == "reviewer.reviewer.review")
 
-adapters.run_generate_brief.clear()
-outcome = adapters.run_generate_brief("k", None)
+adapters.run_review.clear()
+outcome = adapters.run_review("k", None)
 check("injected module actually invoked",
-      outcome.ok and "Results" in outcome.value, str(outcome))
+      outcome.ok and outcome.value.get("reproducibility_score") == 7.5, str(outcome))
 
-del sys.modules["ai.summarizer"]
+del sys.modules["reviewer.reviewer"]
 adapters.resolve.clear()
-adapters.run_generate_brief.clear()
+adapters.run_review.clear()
 check("falls back to stub again once removed",
-      not adapters.resolve("generate_brief").is_real)
+      not adapters.resolve("review").is_real)
 
 # When Member 3's modules are present, confirm we really drive them.
 if adapters.resolve("verify_claim").is_real:

@@ -38,7 +38,8 @@ from typing import Any, Callable, Iterable
 
 import streamlit as st
 
-from integration import stubs
+from integration import llm, stubs
+from integration.textblocks import references_text
 
 logger = logging.getLogger("paperlens.integration")
 
@@ -169,6 +170,11 @@ def resolve(name: str) -> Resolved:
             continue
         fn = getattr(module, attr)
         logger.info("paperlens: using real %s from %s.%s", name, module_path, attr)
+        if name == "generate_brief":
+            # The summarizer fans out one call per page and cannot be reached
+            # through a `client=` parameter, so its burst is brought under the
+            # shared budget here, at the moment it is first resolved.
+            llm.pace_summarizer()
         return Resolved(name=name, fn=fn, is_real=True, source=f"{module_path}.{attr}")
 
     stub = _STUBS.get(name)
@@ -206,6 +212,7 @@ _SYNONYMS: dict[str, tuple[str, ...]] = {
     "page": ("page", "claimed_page", "page_number", "page_no"),
     "full_text_by_page": ("full_text_by_page", "text_by_page", "pages_text",
                           "pages", "page_text"),
+    "client": ("client", "openai_client", "llm_client"),
     "pdf_path": ("pdf_path", "path", "file_path", "filename", "pdf"),
     "claims": ("claims", "items", "batch"),
     # build_index takes chunks, not a document — see run_build_index.
@@ -429,6 +436,9 @@ def run_build_index(cache_key: str, _document: Any, local: bool = False) -> Outc
                 "full_text_by_page": pages,
                 "document": _document,
                 "context": _document,
+                # None when no provider override is set, which every teammate
+                # function reads as "build your own default client".
+                "client": llm.client(),
             },
             fallback_order=("chunks", "full_text_by_page"),
         ),
@@ -459,10 +469,51 @@ def run_ask_question(question: str, document: Any, index: Any, *, local: bool = 
                 "document": document,
                 "index": index,
                 "context": index if index is not None else document,
+                "client": llm.client(),
             },
             fallback_order=("question", "index", "document"),
         ),
     )
+
+
+def _with_references_text(payload: Any, document: Any) -> Any:
+    """Ensure the payload carries the reference block the extractor reads.
+
+    The shipped parser emits ``sections`` as
+    ``[id, title, level, page_start, page_end]`` — no ``text`` — and no
+    ``references_text``. The citation extractor looks for a section literally
+    named "References" and reads its ``text``. The two never meet, so extraction
+    found **zero** references on a paper containing forty.
+
+    Repairing it here is exactly this layer's job: neither teammate has to change
+    shape, and the fix disappears on its own the day the parser supplies either
+    field itself.
+    """
+    if not isinstance(payload, dict):
+        return payload
+
+    if _as_text(payload.get("references_text")):
+        return payload
+
+    sections = payload.get("sections")
+    if isinstance(sections, (list, tuple)) and any(
+        _as_text(s.get("text")) for s in sections if isinstance(s, dict)
+    ):
+        return payload  # the parser already carries section text
+
+    pages = getattr(document, "full_text_by_page", None) or {}
+    block = references_text(pages)
+    if not block:
+        return payload
+
+    repaired = dict(payload)
+    repaired["references_text"] = block
+    logger.info("paperlens: supplied references_text (%d chars) for extraction", len(block))
+    return repaired
+
+
+def _as_text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
@@ -477,6 +528,7 @@ def run_analyze_references(cache_key: str, _document: Any) -> Outcome:
     resolved = resolve("analyze_references")
     raw = getattr(_document, "raw", None)
     payload = raw if isinstance(raw, dict) else _document
+    payload = _with_references_text(payload, _document)
 
     return safe_call(
         "Citation analysis",
