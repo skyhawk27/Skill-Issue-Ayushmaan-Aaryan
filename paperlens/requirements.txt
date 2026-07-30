@@ -8,3 +8,35 @@ numpy>=1.24.0
 
 # Testing
 pytest>=7.0.0
+
+# ---------------------------------------------------------------------------
+# Member 5 — Dashboard & UX
+# ---------------------------------------------------------------------------
+
+# Streamlit 1.41-1.58 have an iframe-scroll regression that resets page position
+# after a dialog closes, which breaks the PDF page-jump the demo depends on.
+# Fixed upstream in 1.59.0. Please don't relax this floor.
+streamlit>=1.59
+
+# PDF viewer with annotation overlay + scroll_to_page (pdf.js based).
+streamlit-pdf-viewer>=0.0.30
+
+# Quote -> bounding-box geometry for evidence highlighting
+# (paperlens/integration/highlight.py). Member 1 also needs this for parsing.
+pymupdf>=1.24
+
+# Citation graph (Feature 6 / 7). networkx is here for Member 4's family tree;
+# the graph currently renders through st.graphviz_chart, which needs no package.
+plotly>=5.20
+networkx>=3.2
+
+# Needed to run the existing async tests in tests/test_semantic.py — they already
+# use @pytest.mark.asyncio, the plugin was just missing here. Without it those 6
+# tests error out with "async def functions are not natively supported".
+pytest-asyncio>=0.23
+
+# ---------------------------------------------------------------------------
+# Note on Python version: use 3.13, not 3.14. Every native dependency above
+# ships a real cp313 wheel; on 3.14, PyMuPDF 1.28 publishes only cp314-cp314t
+# (free-threaded) plus a less-exercised cp313-abi3.
+# ---------------------------------------------------------------------------

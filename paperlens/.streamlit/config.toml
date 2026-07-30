@@ -1,0 +1,122 @@
+# PaperLens theme — derived from DESIGN.md (the Notion design analysis), rendered
+# monochrome per the project's visual direction.
+#
+# ─── The one rule that governs this file ─────────────────────────────────────
+# The verification badge is the ONLY colour in the application. Chrome, nav,
+# cards, type, dividers and the PDF frame are all warm paper / white / near-black.
+# Because nothing else competes for attention, a green/amber/red badge is legible
+# from the back of a demo room, and colour carries information instead of
+# decoration. Feature 4B is the product; the palette says so.
+#
+# Do not add a second structural accent. If you need to distinguish something,
+# use weight, size or spacing first.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Only [theme] is defined (no [theme.light]/[theme.dark]), which deliberately
+# locks the app to one mode — a controlled, predictable look on demo day.
+
+[theme]
+base = "light"
+
+# Near-black as the accent, not a colour. Streamlit tints every checkbox, slider,
+# focus ring and spinner with primaryColor; black keeps all widget chrome
+# monochrome. White primary-button text contrasts at 21:1.
+primaryColor = "#000000"          # DESIGN.md {colors.ink}
+
+# NOTE — this pair looks "inverted" versus the usual Streamlit advice (which
+# suggests secondaryBackgroundColor be the darker of the two). It is intentional
+# and load-bearing: DESIGN.md's whole thesis is a warm paper-soft page canvas
+# with pure-white card surfaces floating on it ("use pure white for cards and
+# fields to create gentle figure/ground", "don't place type on pure clinical
+# white for full pages"). Flipping these would flatten the figure/ground and
+# lose the document-like calm. Contrast is unaffected — both are near-white
+# against near-black ink. Please don't "fix" this.
+backgroundColor = "#f6f5f4"       # {colors.canvas-soft} — warm paper page
+secondaryBackgroundColor = "#ffffff"  # {colors.surface} — cards, widgets
+
+textColor = "#000000"             # {colors.ink}
+borderColor = "#e6e6e6"           # {colors.hairline}
+showWidgetBorder = true
+showSidebarBorder = true
+
+# The single sanctioned splash of colour in the chrome, and only ever for inline
+# links / external citation links. Never a filled button.
+#
+# Uses {colors.primary-active} (#005bab) rather than {colors.primary} (#0075de).
+# Measured: #0075de is 4.19:1 against this warm canvas — below WCAG AA's 4.5:1 for
+# body text. (It passes at 4.57:1 on pure white, which is the context DESIGN.md
+# derived it in; on the paper canvas it does not.) #005bab is 6.25:1 and is
+# already a DESIGN.md token, so this stays inside the palette.
+linkColor = "#005bab"             # {colors.primary-active}
+linkUnderline = true
+
+# DESIGN.md rounds utility/app controls at {rounded.md} = 8px. The pill radius
+# ({rounded.full}) belongs to marketing CTAs, not an application surface.
+baseRadius = "8px"
+buttonRadius = "8px"
+
+# ─── Typography: DESIGN.md's scale, verbatim ────────────────────────────────
+# Inter is the open substitute for the proprietary NotionInter.
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+
+baseFontSize = 16                 # {typography.body-md}
+baseFontWeight = 400              # DESIGN.md: "don't set body copy in a heavy weight"
+
+# heading-1 / heading-2 / heading-3 / title / body-md / caption
+headingFontSizes = ["40px", "26px", "22px", "20px", "16px", "14px"]
+headingFontWeights = [700, 700, 700, 600, 600, 600]
+
+codeFontSize = "0.875rem"
+codeTextColor = "#31302e"         # {colors.ink-secondary}
+codeBackgroundColor = "#f6f5f4"   # {colors.canvas-soft}
+
+# ─── The verification palette — the app's only colour ──────────────────────
+# Thresholds live in ui/theme.py and come from PRD Feature 4B:
+#   >= 0.90 verified · 0.60-0.90 paraphrased · < 0.60 unsupported
+#
+# green/orange are DESIGN.md accents. red is a documented ADDITION: DESIGN.md
+# states outright that Notion "does not expose a dedicated error/success
+# palette", so there is no brand red to inherit. #c0362c is tuned to sit beside
+# accent-orange without clashing. Recorded here so it is not mistaken for a
+# token that was found rather than chosen.
+greenColor = "#1aae39"            # {colors.accent-green}  — Verified
+orangeColor = "#dd5b00"           # {colors.accent-orange} — Paraphrased
+redColor = "#c0362c"              # ADDITION (see above)   — Unsupported
+grayColor = "#615d59"             # {colors.ink-muted}     — Unverified / N/A
+blueColor = "#0075de"             # {colors.primary}
+violetColor = "#391c57"           # {colors.accent-purple-deep}
+yellowColor = "#dd5b00"           # collapsed onto orange; no separate yellow
+
+# Badge fills, hand-tuned to read on the warm paper canvas rather than on white.
+# Text variants are darkened for WCAG AA against their own fill.
+greenBackgroundColor = "#e8f7ec"
+greenTextColor = "#127a28"
+orangeBackgroundColor = "#fdefe6"
+orangeTextColor = "#9c4000"
+redBackgroundColor = "#fbebe9"
+redTextColor = "#8f2820"
+grayBackgroundColor = "#efedeb"
+grayTextColor = "#4a4642"
+
+# ─── Charts: the citation graph stays monochrome ────────────────────────────
+# An ink ramp, so the graph reads as structure rather than as a second palette
+# competing with the verification badges. Blue is last, for the one series that
+# ever needs to be picked out (the current paper).
+chartCategoricalColors = ["#000000", "#31302e", "#615d59", "#8a857f", "#a39e98", "#c4c0bb", "#0075de"]
+chartSequentialColors = ["#f6f5f4", "#e6e6e6", "#d4d0cb", "#c4c0bb", "#a39e98", "#8a857f", "#615d59", "#484541", "#31302e", "#000000"]
+
+dataframeBorderColor = "#e6e6e6"
+dataframeHeaderBackgroundColor = "#f6f5f4"
+
+[theme.sidebar]
+backgroundColor = "#ffffff"       # white rail against the warm paper canvas
+secondaryBackgroundColor = "#f6f5f4"
+codeBackgroundColor = "#f6f5f4"
+textColor = "#000000"
+borderColor = "#e6e6e6"
+primaryColor = "#000000"
+
+[browser]
+gatherUsageStats = false
