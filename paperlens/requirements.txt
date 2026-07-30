@@ -1,0 +1,10 @@
+# PaperLens — Member 3 dependencies (RAG + Verification)
+# Other members will add their own dependencies to this file.
+
+openai>=1.30.0
+faiss-cpu>=1.7.4
+rapidfuzz>=3.0.0
+numpy>=1.24.0
+
+# Testing
+pytest>=7.0.0
