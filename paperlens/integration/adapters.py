@@ -16,7 +16,7 @@ here, which does four things no panel should have to think about:
    ``verify_claim``'s ``full_text_by_page``.
 
 3. **Error isolation.** :func:`safe_call` converts an exception into a value.
-   NFR §11 requires that a Semantic Scholar outage or a Reviewer Mode crash
+   NFR §11 requires that a OpenAlex outage or a Reviewer Mode crash
    leave the rest of the dashboard usable; that is enforced structurally here
    rather than by hoping every panel remembers a try/except.
 
@@ -50,11 +50,15 @@ logger = logging.getLogger("paperlens.integration")
 #: import paths named in the integration notes.
 _LOOKUP: dict[str, tuple[tuple[str, str], ...]] = {
     "process_pdf": (
+        ("parser.document_processor", "process_pdf"),
         ("parser.pdf_parser", "process_pdf"),
         ("parser.process_pdf", "process_pdf"),
         ("parser", "process_pdf"),
+        ("document_processor", "process_pdf"),
     ),
     "generate_brief": (
+        ("summarization.briefing", "generate_brief"),
+        ("summarization", "generate_brief"),
         ("ai.summarizer", "generate_brief"),
         ("briefing.generate_brief", "generate_brief"),
         ("briefing", "generate_brief"),
@@ -94,7 +98,7 @@ _LOOKUP: dict[str, tuple[tuple[str, str], ...]] = {
         ("citations.extractor", "analyze_references"),
         ("citations.extractor", "extract_references"),
         ("citations", "extract_references"),
-        ("citations.semantic", "analyze_references"),
+        ("citations.openalex", "analyze_references"),
     ),
     "review": (
         ("reviewer.reviewer", "review"),
@@ -178,13 +182,13 @@ def integration_status() -> dict[str, Resolved]:
     return {name: resolve(name) for name in _LOOKUP}
 
 
-def missing_modules() -> list[str]:
-    """Owners whose real module is not yet importable, for the fallback notice."""
-    seen: list[str] = []
-    for resolved in integration_status().values():
-        if not resolved.is_real and resolved.owner not in seen:
-            seen.append(resolved.owner)
-    return seen
+def missing_capabilities() -> list[str]:
+    """Contract function names currently served by a local fallback.
+
+    Returns function names rather than owners: the UI describes what is running
+    locally in terms of its effect on the output, not whose module is missing.
+    """
+    return [name for name, resolved in integration_status().items() if not resolved.is_real]
 
 
 # ─── Signature-tolerant invocation ─────────────────────────────────────────
@@ -279,7 +283,7 @@ def _call(fn: Callable[..., Any], args: list[Any], kwargs: dict[str, Any]) -> An
     """Invoke ``fn``, awaiting it if it turns out to be a coroutine function.
 
     ``citations.explorer.explore_citations`` is ``async def`` — it fans out
-    concurrent Semantic Scholar lookups. Streamlit's script runner is synchronous,
+    concurrent OpenAlex lookups. Streamlit's script runner is synchronous,
     so somebody has to bridge that, and the adapter boundary is the right place:
     no panel should have to know whether a teammate's function happens to be
     async.
@@ -376,13 +380,21 @@ def run_process_pdf(cache_key: str, pdf_path: str) -> Outcome:
 
 @st.cache_data(show_spinner=False, max_entries=8)
 def run_generate_brief(cache_key: str, _document: Any) -> Outcome:
-    """Generate the structured summary."""
+    """Generate the structured summary.
+
+    The shipped ``generate_brief(doc_json: dict)`` wants the raw parser payload,
+    not our ``Document`` dataclass, so ``Document.raw`` is offered first — same
+    reasoning as :func:`run_analyze_references`.
+    """
     resolved = resolve("generate_brief")
+    raw = getattr(_document, "raw", None)
+    payload = raw if isinstance(raw, dict) else _document
+
     return safe_call(
         "Summarization",
         lambda: invoke(
             resolved.fn,
-            {"document": _document, "context": _document},
+            {"document": payload, "context": payload},
             fallback_order=("document",),
         ),
     )

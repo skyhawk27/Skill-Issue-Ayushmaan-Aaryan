@@ -153,14 +153,14 @@ def empty_state(headline: str, detail: str = "", icon: str = ":material/inbox:")
 
 
 def fallback_banner(notice: str) -> None:
-    """Disclose that local fallbacks are standing in for teammate modules.
+    """Disclose which parts of the output are produced locally.
 
     This is not decoration. The product's entire claim is that you can trust what
-    it shows you, so the UI has to be explicit about which parts are real AI
-    output and which are local heuristics. Collapsed by default to stay out of
-    the way, but always present.
+    it shows you, so the UI has to be explicit about which parts are model output
+    and which are local heuristics. Collapsed by default to stay out of the way,
+    but always present.
     """
     if not notice:
         return
-    with st.expander("Running with local fallbacks", icon=":material/science:"):
+    with st.expander("How this output was produced", icon=":material/info:"):
         st.caption(notice)

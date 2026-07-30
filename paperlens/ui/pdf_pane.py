@@ -1,22 +1,42 @@
 """The right-hand PDF pane: page navigation, and the highlighted evidence.
 
-Behaviour verified directly against the installed ``streamlit-pdf-viewer``
-frontend bundle, because its docstrings are ambiguous on two points that matter:
+Behaviour verified against the installed ``streamlit-pdf-viewer`` frontend
+(``PdfViewer.vue``, recovered from its source map), because two things about it
+are load-bearing and neither is in the docs.
 
-* ``scroll_to_page`` is the **absolute** 1-based PDF page number. (The docstring
-  says "positional value", which reads as an index into ``pages_to_render``; the
-  bundle resolves ``getElementById("canvas_page_" + scroll_to_page)`` and assigns
-  that id from the absolute page number, so absolute is correct.)
-* ``annotations[].page`` is likewise matched against the absolute page number,
-  and ``scroll_to_annotation`` centres that box in the viewport.
+**1. The component does not react to navigation props.** It declares exactly
+three watchers::
 
-Knowing both let us render only a window of pages around the point of interest.
-That matters more than it sounds: every claim click is a Streamlit rerun, which
-re-renders the component, and painting 40 canvases at device pixel ratio on each
-click makes the whole app feel broken. A three-page window keeps it instant.
+    watch(() => props.args.binary, ...)
+    watch(() => props.args.zoom_level, ...)
+    watch(() => props.args.viewer_align, ...)
+
+There is no watcher on ``scroll_to_page``, ``scroll_to_annotation``,
+``annotations`` or ``pages_to_render``. The scroll routine only runs inside the
+PDF load path, reached via ``onMounted`` or a change of ``binary``. So passing a
+new ``scroll_to_page`` for the same document does *nothing* — the iframe just
+sits there.
+
+The fix is to change the Streamlit component ``key`` whenever the target moves.
+A new key makes Streamlit destroy and recreate the component, which remounts it
+and re-runs the load-and-scroll path. It is the only reliable trigger available
+from Python, and it is why :func:`_viewer` builds its key from the navigation
+state rather than using a constant.
+
+**2. Page numbers are absolute.** ``scroll_to_page`` and ``annotations[].page``
+are absolute 1-based PDF pages. (The docstring calls ``scroll_to_page`` a
+"positional value", which reads as an index into ``pages_to_render``; the
+component resolves ``getElementById("canvas_page_" + scroll_to_page)`` against
+ids assigned from the absolute number.)
+
+The whole document is rendered — no page windowing. Windowing was cheaper, but it
+meant the viewer only ever held a slice of the paper, which is wrong for a tool
+whose job is reading around the evidence.
 """
 
 from __future__ import annotations
+
+import hashlib
 
 import streamlit as st
 from streamlit_pdf_viewer import pdf_viewer
@@ -24,12 +44,6 @@ from streamlit_pdf_viewer import pdf_viewer
 from integration import highlight
 from ui import state
 from ui.theme import PDF_VIEWER_HEIGHT, PDF_VIEWER_WIDTH, style_for
-
-#: Pages either side of the target to render alongside it. One is enough to read
-#: across a page break without paying for the whole document.
-_WINDOW = 1
-
-_SHOW_ALL = "pl.pdf_show_all"
 
 
 def render(page_count: int) -> None:
@@ -89,16 +103,28 @@ def _nav_row(page: int, page_count: int, result) -> None:
         )
         st.markdown(f"**Page {page}** of {page_count}")
         st.space("stretch")
-        st.toggle(
-            "All pages",
-            key=_SHOW_ALL,
-            help=(
-                "Render the whole document instead of just the pages around the "
-                "current one. Slower on long papers."
-            ),
-        )
+        if page_count > 1:
+            st.number_input(
+                "Go to page",
+                min_value=1,
+                max_value=page_count,
+                value=page,
+                step=1,
+                key="pl.pdf.goto",
+                label_visibility="collapsed",
+                on_change=_goto_from_input,
+                help="Jump to a page number.",
+                width=110,
+            )
 
     _highlight_caption(result)
+
+
+def _goto_from_input() -> None:
+    """Callback for the page-number box."""
+    requested = st.session_state.get("pl.pdf.goto")
+    if isinstance(requested, int):
+        state.goto_page(requested)
 
 
 def _highlight_caption(result) -> None:
@@ -126,23 +152,30 @@ def _highlight_caption(result) -> None:
         )
 
 
+def _nav_key(pdf_path: str, page: int, quote: str) -> str:
+    """A component key that changes exactly when the view should move.
+
+    The component has no watcher on its navigation props, so a stable key means
+    a claim click updates nothing. Folding the target page and quote into the key
+    forces a remount, which re-runs the component's load-and-scroll path.
+
+    The document is in the key too, so switching papers cannot reuse a mounted
+    viewer still holding the previous one.
+    """
+    digest = hashlib.md5(f"{pdf_path}|{page}|{quote}".encode()).hexdigest()[:10]
+    return f"pl.pdf.viewer.{digest}"
+
+
 def _viewer(pdf_path: str, page: int, page_count: int, result) -> None:
     """Render the component itself."""
-    show_all = bool(st.session_state.get(_SHOW_ALL))
-    if show_all:
-        pages_to_render: list[int] = []       # empty means "all", per the component
-    else:
-        low = max(1, page - _WINDOW)
-        high = min(page_count, page + _WINDOW)
-        pages_to_render = list(range(low, high + 1))
-
+    # Render the whole document. `pages_to_render=[]` means "all pages".
     annotations = [dict(a) for a in result.annotations]
 
     # Only one of these may be passed — the component raises if both are set.
     # Prefer the annotation, which centres the matched span rather than parking
     # the page top at the fold.
     scroll_kwargs: dict[str, int] = {}
-    if annotations and (show_all or annotations[0]["page"] in pages_to_render):
+    if annotations:
         scroll_kwargs["scroll_to_annotation"] = 1
     else:
         scroll_kwargs["scroll_to_page"] = page
@@ -153,14 +186,14 @@ def _viewer(pdf_path: str, page: int, page_count: int, result) -> None:
             width=PDF_VIEWER_WIDTH,
             height=PDF_VIEWER_HEIGHT,
             annotations=annotations,
-            pages_to_render=pages_to_render,
+            pages_to_render=[],
             annotation_outline_size=2,
             render_text=True,
             zoom_level="auto",
             viewer_align="center",
             show_page_separator=True,
             scroll_behavior="smooth",
-            key="pl.pdf.viewer",
+            key=_nav_key(pdf_path, page, state.get(state.TARGET_QUOTE) or ""),
             **scroll_kwargs,
         )
     except Exception as exc:  # noqa: BLE001

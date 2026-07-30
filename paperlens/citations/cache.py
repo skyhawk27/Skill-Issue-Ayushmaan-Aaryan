@@ -1,5 +1,5 @@
 """
-citations/cache.py — JSON-file-based cache for Semantic Scholar responses.
+citations/cache.py — JSON-file-based cache for OpenAlex responses.
 
 Provides demo reliability by allowing pre-populated caches, and avoids
 redundant API calls for papers already looked up.

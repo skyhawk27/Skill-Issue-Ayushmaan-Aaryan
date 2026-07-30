@@ -183,7 +183,7 @@ section("Panel navigation")
 from integration.contracts import Reference  # noqa: E402
 
 # Pre-seed references for the Citations panel. Once Member 4's real module is
-# installed it fetches Semantic Scholar live, and a rate-limited lookup with
+# installed it fetches OpenAlex live, and a rate-limited lookup with
 # retries can exceed the AppTest timeout. This check is about the panel
 # *rendering*; the fetch path is covered by the failure-isolation section below.
 _seeded_refs = (
@@ -228,6 +228,30 @@ at_chat = at_chat.run()
 check("chat input present in offline mode", len(at_chat.chat_input) == 1,
       f"inputs={len(at_chat.chat_input)}")
 
+# Regression: the opt-in used to be stored under the toggle's own widget key.
+# Turning it on made the failure branch stop rendering, the toggle vanished, and
+# Streamlit discarded the widget state — so the setting flipped straight back off.
+def ss(at_instance, key, default=None):
+    """AppTest's session_state proxy has no .get()."""
+    return at_instance.session_state[key] if key in at_instance.session_state else default
+
+
+check("offline mode survives the rerun that hides the failure branch",
+      ss(at_chat, _LOCAL_MODE) is True,
+      f"{_LOCAL_MODE}={ss(at_chat, _LOCAL_MODE)!r}")
+check("offline toggle stays on screen so there is a way back",
+      len(at_chat.toggle) >= 1, f"toggles={len(at_chat.toggle)}")
+
+# On its own instance, so the turn count below is not perturbed.
+_persist = loaded_app()
+_persist.session_state[state.PANEL] = "Chat"
+_persist.session_state[_LOCAL_MODE] = True
+_persist = _persist.run()
+_persist = _persist.chat_input[0].set_value("What is proposed?").run()
+check("offline mode still set after asking a question",
+      ss(_persist, _LOCAL_MODE) is True,
+      f"{_LOCAL_MODE}={ss(_persist, _LOCAL_MODE)!r}")
+
 if at_chat.chat_input:
     answered = at_chat.chat_input[0].set_value(
         "What architecture do the authors propose?"
@@ -262,7 +286,7 @@ import types  # noqa: E402
 
 
 def exploding(*_args, **_kwargs):
-    raise RuntimeError("Semantic Scholar unavailable (simulated)")
+    raise RuntimeError("OpenAlex unavailable (simulated)")
 
 
 # Inject a *real* module that raises. Patching integration.stubs would not work:

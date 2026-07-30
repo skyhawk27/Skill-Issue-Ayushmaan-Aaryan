@@ -19,7 +19,47 @@ from integration.contracts import ChatTurn, Document, to_chat_turn
 from ui import components, state
 
 #: User's explicit opt-in to the offline keyword retriever.
+#:
+#: This is plain session state, deliberately **not** a widget key. Using the
+#: widget's own key here was a bug: switching the toggle on made the offline
+#: index build, which meant the failure branch stopped rendering, which meant the
+#: toggle itself was no longer on the page — and Streamlit discards widget state
+#: for widgets that disappear. The setting silently flipped back off on the next
+#: rerun. The widget now writes here through a callback, so the choice outlives
+#: the widget that made it.
 _LOCAL_MODE = "pl.chat_local"
+
+#: The toggle widget's own key. Kept distinct from the value above.
+_LOCAL_MODE_WIDGET = "pl.chat_local_toggle"
+
+
+def _local_mode() -> bool:
+    return bool(st.session_state.get(_LOCAL_MODE, False))
+
+
+def _sync_local_mode() -> None:
+    """Copy the toggle's value into persistent state."""
+    st.session_state[_LOCAL_MODE] = bool(st.session_state.get(_LOCAL_MODE_WIDGET, False))
+
+
+def _local_mode_toggle() -> None:
+    """The offline-search opt-in.
+
+    Rendered whenever it is relevant — both when credentials are missing *and*
+    while offline mode is active — so there is always a way back to semantic
+    retrieval, and so the widget never vanishes mid-session.
+    """
+    st.toggle(
+        "Use local keyword search",
+        value=_local_mode(),
+        key=_LOCAL_MODE_WIDGET,
+        on_change=_sync_local_mode,
+        help=(
+            "Answers from the paper by matching words rather than meaning. "
+            "No API key needed. Weaker than semantic retrieval — it will miss "
+            "questions phrased differently from the text."
+        ),
+    )
 
 
 def _index_failure(error: str) -> None:
@@ -41,18 +81,10 @@ def _index_failure(error: str) -> None:
             "export OPENAI_API_KEY=sk-...\n"
             "```"
         )
-        st.toggle(
-            "Use local keyword search instead",
-            key=_LOCAL_MODE,
-            help=(
-                "Answers from the paper by matching words rather than meaning. "
-                "No API key needed. Weaker than semantic retrieval — it will miss "
-                "questions phrased differently from the text."
-            ),
-        )
         # Deliberately opt-in. Downgrading semantic retrieval to keyword matching
         # automatically would leave the user unable to tell which one produced an
         # answer, in a product whose whole point is knowing what to trust.
+        _local_mode_toggle()
         return
 
     components.unavailable(
@@ -73,7 +105,7 @@ def render(doc: Document) -> None:
         )
         return
 
-    use_local = bool(st.session_state.get(_LOCAL_MODE))
+    use_local = _local_mode()
     index, index_error = pipeline.get_index(
         state.get(state.DOC_KEY) or "", doc, local=use_local
     )
@@ -83,10 +115,11 @@ def render(doc: Document) -> None:
         return
 
     if use_local:
-        st.caption(
-            ":material/science: Local keyword search — matches words, not meaning. "
-            "Set `OPENAI_API_KEY` and turn this off for semantic retrieval."
-        )
+        # Keep the toggle on screen while offline mode is active: it is both the
+        # disclosure that answers are keyword-matched, and the way back out.
+        with st.container(horizontal=True, vertical_alignment="center"):
+            _local_mode_toggle()
+            st.caption("Matching words, not meaning. Set `OPENAI_API_KEY` for semantic search.")
 
     history: list[ChatTurn] = state.get(state.CHAT) or []
 

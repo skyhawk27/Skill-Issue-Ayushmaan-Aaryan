@@ -12,7 +12,7 @@ live; the other three fall back to local stand-ins that do real work. See
 
 ```bash
 python3.13 -m venv .venv                        # 3.13, not 3.14 — see Environment
-.venv/bin/pip install -r paperlens/requirements.txt
+.venv/bin/pip install -r requirements.txt
 .venv/bin/streamlit run paperlens/app.py
 ```
 
@@ -57,7 +57,7 @@ integration/
   highlight.py             quote → PDF bounding boxes
   pipeline.py              upload → parsed → verified orchestration
   stubs.py                 local stand-ins for the other four modules
-tests/test_dashboard.py    49 headless checks over the PRD success criteria
+tests/dashboard_checks.py  60 headless checks over the PRD success criteria
 ```
 
 ## Design
@@ -83,23 +83,29 @@ colour-blindness. All text pairs are measured at WCAG AA or better.
 
 ## Running without the rest of the team
 
-Current state — the **Modules** popover in the nav rail shows this live:
+Current state:
 
 | Function | Owner | Status |
 |---|---|---|
+| `process_pdf` | Member 1 | **live** (`parser.document_processor`) |
 | `build_index`, `ask_question` | Member 3 | **live** (`rag.embeddings`, `rag.chat`) |
 | `verify_claim`, `verify_claims_batch` | Member 3 | **live** (`verification.verifier`) |
 | `analyze_references` | Member 4 | **live** (`citations.explorer.explore_citations`) |
-| `process_pdf` | Member 1 | local fallback |
-| `generate_brief` | Member 2 | local fallback |
+| `generate_brief` | Member 2 | local fallback — see note |
 | `review` | Member 4 | local fallback |
+
+> **Member 2's summarizer cannot be imported without credentials.**
+> `summarization/briefing.py` constructs an `AsyncOpenAI` client at *module
+> level* (line 18), so `import summarization.briefing` raises `OpenAIError`
+> without `NVIDIA_API_KEY`. The resolver catches it and falls back, but the real
+> summarizer is unreachable on any machine without that key. Building the client
+> lazily inside `generate_brief` (as `rag/chat.py` does) would fix it.
 
 `integration/stubs.py` provides the fallbacks, and they do **real work**, not
 canned mocks:
 
 | | stub does | real module adds |
 |---|---|---|
-| `process_pdf` | genuine PyMuPDF parse, real page text, `references_text` | section structure, proper chunking |
 | `generate_brief` | picks real sentences from the real paper | abstractive LLM summarisation |
 | `review` | keyword-probes reproducibility signals | LLM review + consistency |
 
@@ -109,18 +115,18 @@ genuinely locate and genuinely verify — through Member 3's real Feature 4B
 pipeline.
 
 They are not a substitute for the real thing: the brief is extractive rather than
-abstractive, retrieval is lexical rather than semantic, and no citation metadata
-is fetched. The UI **says so** in a "Running with local fallbacks" expander, and
-the **Modules** popover in the nav rail shows which functions are live versus
-stubbed. Passing local heuristics off as verified AI output would be exactly the
-dishonesty PaperLens exists to prevent.
+abstractive and retrieval is lexical rather than semantic. The UI **says so**, in a
+"How this output was produced" expander that describes what is generated locally.
+Passing local heuristics off as verified AI output would be exactly the dishonesty
+PaperLens exists to prevent.
 
 ### Dropping your module in
 
 1. Put your file where PRD §13 says (e.g. `verification/verifier.py`).
 2. Overwrite the placeholder `__init__.py` in your package — it holds no logic.
 3. **Restart the server** (import resolution is cached in `st.cache_resource`).
-4. Check the **Modules** popover: your name flips grey → green.
+4. Confirm it is live: `adapters.integration_status()` reports the resolved
+   source for every contract function.
 
 No file in `ui/` changes. Details and accepted field spellings: `integration/CONTRACT.md`.
 

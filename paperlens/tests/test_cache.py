@@ -1,4 +1,4 @@
-t"""
+"""
 tests/test_cache.py — Unit tests for the JSON file cache.
 """
 

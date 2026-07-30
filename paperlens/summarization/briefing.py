@@ -255,3 +255,5 @@ async def generate_brief_async(doc_json: dict) -> dict:
 def generate_brief(doc_json: dict) -> dict:
     """Synchronous wrapper function for Streamlit dashboard integration."""
     return asyncio.run(generate_brief_async(doc_json))
+    print("\n✅ Extraction Complete! Output JSON:\n")
+    print(json.dumps(brief_output, indent=2))

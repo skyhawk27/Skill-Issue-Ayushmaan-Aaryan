@@ -7,17 +7,17 @@ reads, and what it does when a field is missing.
 
 | Member | Function | Status |
 |---|---|---|
-| 1 · parser | `process_pdf` | local fallback |
-| 2 · summarizer | `generate_brief` | local fallback |
+| 1 · parser | `process_pdf` | **live** — `parser.document_processor` |
+| 2 · summarizer | `generate_brief` | local fallback (import fails without `NVIDIA_API_KEY` — see below) |
 | 3 · retrieval | `build_index` | **live** — `rag.embeddings` |
 | 3 · chat | `ask_question` | **live** — `rag.chat` |
 | 3 · verification | `verify_claim`, `verify_claims_batch` | **live** — `verification.verifier` |
 | 4 · citations | `analyze_references` | **live** — `citations.explorer.explore_citations` |
 | 4 · reviewer | `review` | local fallback |
 
-The **Modules** popover in the app's nav rail shows this live. Member 3's real
-signatures are documented below rather than guessed at; the others are still the
-preferred-shape proposal.
+Check the live state with `adapters.integration_status()`. Member 3's and
+Member 4's real signatures are documented below rather than guessed at; the
+others are still the preferred-shape proposal.
 
 > **Chat needs `OPENAI_API_KEY`.** Now that the real retrieval module is wired up,
 > `build_index` calls the OpenAI embeddings API. Without a key the chat panel says
@@ -54,9 +54,26 @@ synonym list is in `adapters._SYNONYMS`.
 
 ---
 
-## Member 1 — `process_pdf(pdf_path) -> dict`
+## Member 1 — `process_pdf(pdf_path, output_json_path=None) -> dict` ✅ LANDED
 
-**Where I look for you:** `parser.pdf_parser`, `parser.process_pdf`, `parser`
+Live at `parser.document_processor`. Ships
+`{metadata, pages, sections, chunks}`. Three notes:
+
+- **There is no `full_text_by_page` key.** The dashboard derives it from
+  `pages[].page_number` / `pages[].text`, so verification and highlighting work —
+  but `verify_claim` takes that mapping as a direct argument, so exporting it
+  would save every consumer the same reconstruction.
+- **`sections` carry no `text`.** The citation extractor looks for a section
+  named "References" and reads its `text` to find the reference list, so it gets
+  nothing. A `references_text` key (whole reference block as one string) is the
+  cheapest fix — it took extraction from 4 references to 40 on the demo paper.
+- **`metadata.title` picks up the rotated arXiv stamp** ("arXiv:1706.03762v7
+  [cs.CL] 2 Aug 2023") because the largest-font run on page one is the margin
+  stamp, not the title. Filtering spans to `line["dir"] == (1, 0)` — horizontal
+  text only — fixes it. The dashboard works around this for display, but the
+  metadata itself is still wrong for anyone else consuming it.
+
+The original proposed shape, still accepted:
 
 ```python
 {
@@ -90,9 +107,21 @@ still browsable. This is the one failure that hurts everywhere.
 
 ---
 
-## Member 2 — `generate_brief(document) -> dict`
+## Member 2 — `generate_brief(doc_json) -> dict` ⚠️ LANDED BUT UNREACHABLE
 
-**Where I look for you:** `ai.summarizer`, `briefing.generate_brief`, `briefing`, `ai`
+Shipped at `summarization/briefing.py`, but **the module cannot be imported
+without credentials**: it constructs an `AsyncOpenAI` client at *module level*
+(line 18), so `import summarization.briefing` raises `OpenAIError` when
+`NVIDIA_API_KEY` is unset. The resolver catches that and falls back to the
+extractive stub, so nothing breaks — but the real summarizer is unreachable on
+any machine without the key, including CI.
+
+Constructing the client lazily inside `generate_brief` (the way `rag/chat.py`
+does it) would make the module importable everywhere and fail only when actually
+called.
+
+**Where I look for you:** `summarization.briefing`, `summarization`,
+`ai.summarizer`, `briefing`, `ai`
 
 Preferred — section name to list of claims:
 
@@ -252,7 +281,7 @@ resolve, the UI falls back to `raw_text`, trimmed to roughly the title clause.
 
 **One thing to consider:** `RawReference` carries `title`, `authors_raw` and `year`
 from local parsing, but `EnrichedCitation` does not surface them — so when
-Semantic Scholar rate-limits, the year and a clean title are lost even though the
+OpenAlex rate-limits, the year and a clean title are lost even though the
 extractor found them. Carrying them onto `EnrichedCitation` would make the
 degraded state noticeably better.
 
@@ -328,8 +357,8 @@ highlight works end to end today with no other module present and no
 They are not a substitute for your work: the brief is extractive rather than
 abstractive, retrieval is lexical rather than semantic, and no citation metadata
 is fetched. The UI discloses this in a "Running with local fallbacks" expander,
-and the **Modules** popover in the nav rail shows exactly which functions are
-live versus stubbed.
+and `adapters.integration_status()` reports exactly which functions are live
+versus stubbed.
 
 ### Dropping your module in
 
@@ -339,6 +368,7 @@ live versus stubbed.
 3. **Restart the Streamlit server.** Import resolution is cached in
    `st.cache_resource`, so a hot reload will not pick up a newly-importable
    module.
-4. Check the **Modules** popover: your name should flip from grey to green.
+4. Confirm with `adapters.integration_status()` that your function resolves to
+   your module rather than `integration.stubs`.
 
 No file in `ui/` needs to change.

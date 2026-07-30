@@ -86,10 +86,10 @@ def _header(doc: Document) -> None:
 
 
 def _fallback_notice() -> str:
-    """Disclose which teammate modules are currently stood in for."""
+    """Disclose which parts of the output are produced locally."""
     from integration import stubs
 
-    return stubs.fallback_notice(adapters.missing_modules())
+    return stubs.fallback_notice(adapters.missing_capabilities())
 
 
 def _nav_rail(brief: Brief) -> None:
@@ -109,32 +109,6 @@ def _nav_rail(brief: Brief) -> None:
 
     st.space("small")
     components.tally_rail(brief.tally())
-
-    with st.container(horizontal_alignment="left"):
-        st.space("small")
-        _integration_popover()
-
-
-def _integration_popover() -> None:
-    """Which modules are live and which are stubbed.
-
-    Kept out of the way in a popover, but present: during a five-way parallel
-    build, "is my module actually being used?" is the question everyone asks, and
-    answering it in the UI beats reading logs.
-    """
-    with st.popover("Modules", icon=":material/hub:", width="stretch"):
-        st.caption("Integration status")
-        seen: set[str] = set()
-        for name, resolved in adapters.integration_status().items():
-            if resolved.owner in seen:
-                continue
-            seen.add(resolved.owner)
-            if resolved.is_real:
-                st.badge(resolved.owner, icon=":material/check_circle:", color="green",
-                         help=f"Live: {resolved.source}")
-            else:
-                st.badge(resolved.owner, icon=":material/science:", color="gray",
-                         help="Local fallback — drop the real module in and restart.")
 
 
 def _content_pane(doc: Document, brief: Brief, refs: tuple[Reference, ...]) -> None:

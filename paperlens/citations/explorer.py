@@ -1,7 +1,7 @@
 """
 citations/explorer.py — Citation Explorer orchestrator.
 
-Ties together reference extraction, Semantic Scholar lookup, and LLM
+Ties together reference extraction, OpenAlex lookup, and LLM
 purpose generation into a single ``explore_citations()`` entry point
 for the dashboard.
 """
@@ -22,7 +22,7 @@ from citations.models import (
     RawReference,
 )
 from citations.purpose import generate_citation_purposes
-from citations.semantic import SemanticScholarClient
+from citations.openalex import OpenAlexClient
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +63,8 @@ async def explore_citations(
         logger.warning("No references extracted — returning empty results.")
         return [], stats
 
-    # 2. Resolve metadata via Semantic Scholar (concurrently) -----------------
-    client = SemanticScholarClient(cache=cache)
+    # 2. Resolve metadata via OpenAlex (concurrently) -----------------
+    client = OpenAlexClient(cache=cache)
     metadata_map: dict[str, Optional[PaperMetadata]] = {}
 
     async def _resolve(ref: RawReference) -> tuple[str, Optional[PaperMetadata]]:
