@@ -23,6 +23,28 @@ _REPO_ROOT = _PACKAGE_DIR.parent
 sys.path.insert(0, str(_PACKAGE_DIR))
 
 
+def _load_secrets() -> None:
+    """Promote Streamlit secrets into ``os.environ`` — the deployed equivalent of ``.env``.
+
+    ``.env`` is gitignored, so on Streamlit Community Cloud it simply does not
+    exist; credentials arrive through the app's Secrets pane instead. Streamlit
+    already copies top-level ``str``/``int``/``float`` secrets into ``os.environ``,
+    which is exactly the shape ``os.getenv`` teammates read — but it does that
+    lazily, the first time ``st.secrets`` is touched. Nothing touches it in this
+    codebase, so without this the promotion would happen only *after* the
+    import-time reads below, i.e. never in time.
+
+    Touching ``st.secrets`` here forces that to happen first. Keep the secret keys
+    flat (no TOML tables) or they are not promoted.
+
+    Raises when no secrets file exists at all, which is the normal local case.
+    """
+    try:
+        st.secrets.to_dict()
+    except Exception:  # no secrets configured — expected off-cloud
+        pass
+
+
 def _load_env() -> None:
     """Load ``.env`` before anything else imports a module that reads it.
 
@@ -49,6 +71,9 @@ def _load_env() -> None:
             load_dotenv(candidate, override=False)
 
 
+# Secrets first, then ``.env``: ``load_dotenv(override=False)`` never clobbers what
+# is already set, so a deployed secret wins and a local ``.env`` fills the gap.
+_load_secrets()
 _load_env()
 
 from integration import pipeline  # noqa: E402

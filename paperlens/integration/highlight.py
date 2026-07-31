@@ -207,6 +207,138 @@ def _locate_on_page(page: Any, quote: str, fitz_module: Any) -> tuple[list[Any],
     return [], "none", score
 
 
+#: The paragraph frame's colour — ``{colors.ink-faint}``. Deliberately recessive:
+#: it should say "the sentence lives here" without competing with the
+#: status-coloured box that carries the actual verdict.
+PARAGRAPH_INK = "#a39e98"
+
+
+@dataclass(frozen=True)
+class Passage:
+    """A located quote, plus the paragraph it sits inside.
+
+    ``annotations`` puts the **sentence rects first**. That ordering is load
+    bearing: ``scroll_to_annotation`` is positional, so first-in-list is what the
+    viewer centres on, and centring the sentence rather than the top of its
+    paragraph is the whole point of locating both.
+    """
+
+    page: int | None = None
+    paragraph_index: int | None = None      # 1-based, reading order
+    paragraph_text: str = ""
+    annotations: tuple[dict[str, Any], ...] = ()
+    method: str = "none"                    # "exact" | "fuzzy" | "none"
+    score: float | None = None
+
+    @property
+    def found(self) -> bool:
+        return bool(self.annotations)
+
+    @property
+    def locator(self) -> str:
+        """Human-readable position, e.g. ``"Page 3 · paragraph 2"``."""
+        if self.page is None:
+            return ""
+        if self.paragraph_index is None:
+            return f"Page {self.page}"
+        return f"Page {self.page} · paragraph {self.paragraph_index}"
+
+
+def _paragraph_for(page: Any, quote: str) -> tuple[int | None, str, Any]:
+    """The text block containing ``quote``: 1-based reading index, text, rect.
+
+    PyMuPDF blocks correspond closely to paragraphs, and sorting them top-to-
+    bottom then left-to-right gives an index a human can actually count to on the
+    page — which is what makes "paragraph 2" a usable reference rather than an
+    opaque id.
+    """
+    try:
+        blocks = page.get_text("blocks")
+    except Exception:
+        return None, "", None
+
+    # Text blocks only (block_type 0); sorted into reading order.
+    text_blocks = [b for b in blocks if len(b) < 7 or b[6] == 0]
+    text_blocks.sort(key=lambda b: (round(b[1], 1), round(b[0], 1)))
+
+    needle = _normalise(quote).lower()
+    if not needle:
+        return None, "", None
+    # Match on a leading slice: the full quote may wrap beyond one block.
+    probe = needle[:60]
+
+    for index, block in enumerate(text_blocks, start=1):
+        body = _normalise(block[4]).lower()
+        if probe and probe in body:
+            import fitz  # PyMuPDF
+
+            rect = fitz.Rect(block[0], block[1], block[2], block[3])
+            return index, _normalise(block[4]), rect
+    return None, "", None
+
+
+def locate_passage(
+    pdf_path: str,
+    quote: str,
+    page: int | None,
+    color: str,
+) -> Passage:
+    """Locate ``quote`` and the paragraph around it, ready to draw.
+
+    Degrades in steps rather than failing: no paragraph → sentence only; no
+    sentence → nothing drawn and the caller says so. Neither is an error state.
+    """
+    result = locate_quote(pdf_path, quote, page, color)
+    if not result.found or result.page is None:
+        return Passage(page=result.page, method=result.method, score=result.score)
+
+    paragraph_index: int | None = None
+    paragraph_text = ""
+    paragraph_annotation: dict[str, Any] | None = None
+
+    import fitz  # PyMuPDF
+
+    try:
+        with fitz.open(pdf_path) as doc:
+            pdf_page = doc[result.page - 1]
+            paragraph_index, paragraph_text, rect = _paragraph_for(pdf_page, quote)
+            if rect is not None:
+                origin = (pdf_page.rect.x0, pdf_page.rect.y0)
+                boxes = _rects_to_annotations([rect], result.page, PARAGRAPH_INK, origin)
+                if boxes:
+                    # Dashed, because the component draws outlines only — there is
+                    # no fill available, so weight and style carry the distinction.
+                    boxes[0]["border"] = "dashed"
+                    paragraph_annotation = boxes[0]
+    except Exception:
+        logger.exception("paperlens: could not resolve the paragraph on page %s", result.page)
+
+    annotations = list(result.annotations)          # sentence first — see docstring
+    if paragraph_annotation is not None:
+        annotations.append(paragraph_annotation)
+
+    return Passage(
+        page=result.page,
+        paragraph_index=paragraph_index,
+        paragraph_text=paragraph_text,
+        annotations=tuple(annotations),
+        method=result.method,
+        score=result.score,
+    )
+
+
+@st.cache_data(show_spinner=False, max_entries=256)
+def locate_passage_cached(
+    cache_key: str,
+    pdf_path: str,
+    quote: str,
+    page: int | None,
+    color: str,
+) -> Passage:
+    """Cached :func:`locate_passage`, keyed on the document plus the quote."""
+    return locate_passage(pdf_path, quote, page, color)
+
+
 def locate_quote(
     pdf_path: str,
     quote: str,

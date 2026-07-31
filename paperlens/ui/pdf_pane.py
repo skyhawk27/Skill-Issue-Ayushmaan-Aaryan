@@ -68,10 +68,10 @@ def render(page_count: int) -> None:
 
 
 def _resolve_highlight(pdf_path: str, quote: str, page: int, status: str | None):
-    """Locate the quote, cached on the document + quote."""
+    """Locate the quote *and* its paragraph, cached on the document + quote."""
     if not quote.strip():
-        return highlight.HighlightResult(page=page)
-    return highlight.locate_quote_cached(
+        return highlight.Passage(page=page)
+    return highlight.locate_passage_cached(
         state.get(state.DOC_KEY) or "",
         pdf_path,
         quote,
@@ -140,11 +140,16 @@ def _highlight_caption(result) -> None:
         st.caption("Select a claim to highlight its supporting quote here.")
         return
 
+    # Where it landed, not just that it landed — the locator is the point of
+    # resolving the paragraph at all.
+    where = getattr(result, "locator", "")
+    suffix = f" — {where.lower()}." if where and result.method != "none" else "."
+
     if result.method == "exact":
-        st.caption(":material/check_small: Matched text highlighted.")
+        st.caption(f":material/check_small: Matched text highlighted{suffix}")
     elif result.method == "fuzzy":
         score = f" (closest match, {result.score:.0%} similar)" if result.score else " (closest match)"
-        st.caption(f":material/change_circle: Highlighted the nearest wording{score}.")
+        st.caption(f":material/change_circle: Highlighted the nearest wording{score}{suffix}")
     else:
         st.caption(
             ":material/search_off: This quote could not be located on the page — "

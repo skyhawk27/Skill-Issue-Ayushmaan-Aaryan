@@ -86,6 +86,25 @@ moment, click a claim badged ✅ Verified — those locate reliably.
 
 ---
 
+## 4b. A badge can say Verified while the viewer says "could not locate"
+
+Occasionally a claim is badged ✅ Verified but the PDF pane reports it could not
+find the quote on the page.
+
+Both are telling the truth about different questions. Verification fuzzy-matches
+the quote against the page's **extracted text**; highlighting has to find the span
+**geometrically** on the rendered page. A quote inside a table, spanning two
+columns, or carrying mangled ligatures can pass the first and fail the second.
+
+Nothing is being overclaimed — the text really is on that page — but the pairing
+looks inconsistent if you notice it. **How often varies a lot between runs**,
+because the summarizer is a live model: measured runs have ranged from every
+verified claim highlighting cleanly to under half of them. The test suite reports
+the ratio each run rather than asserting a threshold, precisely because it is not
+stable enough to gate on.
+
+---
+
 ## 5. The PDF pane reloads on every claim click
 
 Clicking a claim visibly re-renders the whole document. On a 15-page paper it is

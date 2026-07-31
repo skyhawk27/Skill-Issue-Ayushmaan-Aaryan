@@ -1,9 +1,13 @@
 """Chat panel — PRD Feature 5, grounded question answering.
 
-Two things here are load-bearing for the demo (script step 4):
+Three things here are load-bearing for the demo (script step 4):
 
-* Every answer carries a verification badge, exactly like a summary claim, and
-  every answer with a page is one click from its highlighted evidence.
+* Every answer carries a verification badge, exactly like a summary claim.
+* **The viewer moves on its own.** A new answer points the PDF pane at its
+  evidence immediately — no click — and cites the exact paragraph it came from,
+  resolved from the document rather than asserted by the model. Only the newest
+  answer navigates; re-rendering history must never hijack the pane, which is why
+  it happens at answer time rather than during render.
 * The "not enough evidence" response is a designed state, not an error. The demo
   deliberately asks a question the paper cannot answer, and that moment only
   lands if the refusal looks like the product working as intended rather than
@@ -14,9 +18,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from integration import adapters, pipeline
+from integration import adapters, highlight, pipeline
 from integration.contracts import ChatTurn, Document, to_chat_turn
 from ui import components, state
+from ui.theme import style_for
 
 #: User's explicit opt-in to the offline keyword retriever.
 #:
@@ -180,6 +185,18 @@ def _handle_question(question: str, doc: Document, index, *, local: bool = False
                 )
 
     state.get(state.CHAT).append(turn)
+
+    # Point the viewer at this answer without waiting for a click. Only the newest
+    # answer does this — re-rendering history must never hijack the pane, which is
+    # why it happens here at answer time rather than in _render_turn.
+    if turn.evidence.is_navigable:
+        state.show_evidence(
+            turn.evidence.page,
+            turn.evidence.quote,
+            turn.evidence.status,
+            claim_id=f"chat-{len(state.get(state.CHAT)) - 1}",
+        )
+
     # Rerun so the new turn renders through the same path as the history, rather
     # than being drawn twice by two different code paths.
     st.rerun()
@@ -201,14 +218,59 @@ def _render_turn(turn: ChatTurn, position: int) -> None:
             if turn.confidence:
                 st.caption(f"Confidence: {turn.confidence}")
 
-        components.quote_block(turn.evidence)
+        _citation(turn)
 
         if turn.evidence.is_navigable:
             components.evidence_button(
                 turn.evidence,
                 key=f"chat-evidence-{position}",
                 claim_id=f"chat-{position}",
+                label="Show in paper",
             )
+
+
+#: Guard on the inline paragraph. Chosen over an expander, but one pathological
+#: block should not push the chat input off screen.
+_MAX_PARAGRAPH_CHARS = 1200
+
+
+def _citation(turn: ChatTurn) -> None:
+    """Where the answer came from: locator, quote, and the surrounding paragraph.
+
+    The paragraph is resolved from the PDF rather than the model, so the citation
+    is a fact about the document rather than another thing the model asserted.
+    """
+    evidence = turn.evidence
+    if not evidence.has_quote:
+        components.quote_block(evidence)
+        return
+
+    passage = None
+    pdf_path = state.get(state.PDF_PATH)
+    if pdf_path and evidence.is_navigable:
+        passage = highlight.locate_passage_cached(
+            state.get(state.DOC_KEY) or "",
+            pdf_path,
+            evidence.quote,
+            evidence.page,
+            style_for(evidence.status).highlight,
+        )
+
+    with st.container(border=True):
+        locator = passage.locator if passage is not None else (
+            f"Page {evidence.page}" if evidence.page else ""
+        )
+        if locator:
+            st.caption(locator)
+
+        components.quote_block(evidence)
+
+        if passage is not None and passage.paragraph_text:
+            body = passage.paragraph_text
+            if len(body) > _MAX_PARAGRAPH_CHARS:
+                body = body[: _MAX_PARAGRAPH_CHARS - 1].rstrip() + "…"
+            st.caption("In context")
+            st.markdown(body)
 
 
 def _render_no_evidence(turn: ChatTurn) -> None:

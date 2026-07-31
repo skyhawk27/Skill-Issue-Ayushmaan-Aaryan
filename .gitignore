@@ -28,7 +28,13 @@ node_modules/
 
 # Secrets. Note the theme in paperlens/.streamlit/config.toml IS committed —
 # it is the design system, not configuration.
-.streamlit/secrets.toml
+#
+# The `**/` matters and is not decoration: a pattern containing a slash is
+# anchored to this file's directory, so a bare `.streamlit/secrets.toml` matched
+# only the repo root and left `paperlens/.streamlit/secrets.toml` — the path
+# sitting right beside the committed theme, and the one Streamlit actually reads
+# for `streamlit run paperlens/app.py` — fully trackable.
+**/.streamlit/secrets.toml
 .env
 
 # Test fixtures: third-party papers are downloaded on demand, not

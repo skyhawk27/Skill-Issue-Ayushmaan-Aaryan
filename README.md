@@ -192,10 +192,43 @@ SEMANTIC_SCHOLAR_API_KEY=optional_key_here
 ### Run the app
 
 ```bash
-streamlit run app.py
+streamlit run paperlens/app.py
 ```
 
 Then open the local URL Streamlit prints (typically `http://localhost:8501`).
+
+Run it from the **repository root**, not from inside `paperlens/`. The entry point
+puts its own directory on `sys.path` so `ui.*` / `integration.*` still resolve, and
+the theme travels either way — Streamlit reads `.streamlit/config.toml` next to the
+main script, and that script-level config outranks the working directory.
+
+---
+
+## 🚀 Deploying to Streamlit Community Cloud
+
+The repo deploys as-is; there is nothing to build. At
+[share.streamlit.io](https://share.streamlit.io), point a new app at this
+repository and set:
+
+| Setting | Value |
+|---|---|
+| **Branch** | `main` |
+| **Main file path** | `paperlens/app.py` |
+| **Python version** | **3.13** — see the note at the foot of `requirements.txt`; 3.14 has no usable PyMuPDF wheel |
+
+Then open **Advanced settings → Secrets** and paste the contents of
+`paperlens/.streamlit/secrets.toml.example`, filling in the keys you have.
+
+Every key is optional. With none of them the app still deploys and runs — upload,
+structured summary, verification badges, PDF navigation, evidence highlighting and
+export all work with no network provider. Each key switches on one further feature.
+
+**Keep the secrets flat — no `[tables]`.** Streamlit promotes only *top-level*
+secrets into `os.environ`, and that is how the teammate modules receive them: they
+call `os.getenv(...)` at import time and never touch `st.secrets`. A nested key is
+not an error, it is simply never seen, and the feature quietly behaves as though
+it were unconfigured. `app.py:_load_secrets()` exists to force that promotion to
+happen *before* those imports run.
 
 ---
 
